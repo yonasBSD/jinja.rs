@@ -45,6 +45,11 @@ vars:
 
   - function: hello
     arguments:
-      - name: name
+      - name: fname
+      - name: lname
     script: |
-      "Hello " + name
+      let result = "Hello";
+      for arg in [fname, lname] {
+          result += " " + arg;
+      }
+      result
