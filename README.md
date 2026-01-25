@@ -7,13 +7,16 @@
 
 ## ✨ Features
 
-- 🎨 **MiniJinja Templates** - Full-featured Jinja2-compatible templating
-- 🦀 **Rhai Scripting** - Embedded scripting for dynamic variable generation
-- 🐚 **Shell Integration** - Execute shell commands and inject results into templates
-- ⚙️ **Declarative Configuration** - Define everything in a clean YAML file
-- 🎯 **Custom Filters** - Create MiniJinja filters from Rhai functions
-- 🔧 **Flexible Execution** - Per-variable shell selection, environment variables, and working directories
-- 🚀 **Zero Runtime Dependencies** - Single binary, works anywhere
+* 🎨 **MiniJinja Templates** - Full-featured Jinja2-compatible templating for Rust.
+* 🦀 **Rhai Scripting** - Embedded scripting engine for complex, dynamic variable generation.
+* 🐚 **Embedded Fish Shell** - Includes a portable **fish shell runtime** embedded in the binary.
+    * **Zero Dependencies:** No need to have fish, bash, or zsh installed on the host system.
+    * **Consistency:** Ensures shell commands (`cmd`/`cmds`) run identically across Linux, FreeBSD, and OpenBSD.
+    * **Auto-Provisioning:** Automatically extracts to `~/.cache/jinja-rs/` and manages permissions on first run.
+* ⚙️ **Declarative Configuration** - Define your entire data pipeline in a clean `j2.yaml` file.
+* 🎯 **Custom Filters** - Turn any Rhai function into a reusable MiniJinja filter.
+* 🔧 **Flexible Execution** - Per-variable shell overrides, custom environment variables, and specific working directories.
+* 🚀 **High Performance** - Parallel variable resolution and efficient binary extraction.
 
 ## 🚀 Quick Start
 
