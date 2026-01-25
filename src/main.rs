@@ -1,4 +1,13 @@
-use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
+mod common;
+
+use std::{
+    collections::HashMap,
+    fs,
+    io::Write,
+    os::unix::fs::PermissionsExt,
+    path::PathBuf,
+    sync::{Arc, OnceLock},
+};
 
 use clap::Parser;
 use minijinja::{Environment, value::Value};
@@ -7,18 +16,55 @@ use serde::Deserialize;
 
 //
 // ──────────────────────────────────────────────────────────────────────────────
+//  EMBEDDED RESOURCES
+// ──────────────────────────────────────────────────────────────────────────────
+//
+// We embed the fish binary at compile time to ensure the tool is
+// self-contained. The path is provided by build.rs via the FISH_BINARY_PATH env
+// var. We use a OnceLock to ensure extraction happens exactly once per
+// lifecycle.
+//
+
+static EMBEDDED_FISH: &[u8] = include_bytes!(env!("FISH_BINARY_PATH"));
+static EXTRACTED_SHELL: OnceLock<PathBuf> = OnceLock::new();
+
+//
+// ──────────────────────────────────────────────────────────────────────────────
+//  CLEANUP LOGIC
+// ──────────────────────────────────────────────────────────────────────────────
+//
+// RAII Guard to ensure the temporary binary is deleted when the program exits.
+// This is critical for personal tools to avoid cluttering the filesystem.
+//
+
+struct CleanupGuard<'a>(&'a PathBuf);
+impl<'a> Drop for CleanupGuard<'a> {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(self.0);
+    }
+}
+
+//
+// ──────────────────────────────────────────────────────────────────────────────
 //  CLI ARGUMENTS
 // ──────────────────────────────────────────────────────────────────────────────
 //
-// The CLI only accepts a template path. All variable definitions and execution
-// behavior come from the YAML configuration (j2.yaml). This keeps the runtime
-// interface simple while allowing the configuration file to drive all logic.
+// The CLI accepts a template path or an info flag. All variable definitions and
+// execution behavior come from the YAML configuration (j2.yaml). This keeps the
+// runtime interface simple while allowing the configuration file to drive
+// logic.
 //
 
 #[derive(Parser, Debug)]
+#[command(author, version, about)]
 pub struct Cli {
+    /// Path to the Jinja template
     #[arg(short, long)]
-    template: PathBuf,
+    template: Option<PathBuf>,
+
+    /// Print detailed version and embedded shell info
+    #[arg(short, long)]
+    info: bool,
 }
 
 //
@@ -95,14 +141,49 @@ pub struct RootConfig {
 
 //
 // ──────────────────────────────────────────────────────────────────────────────
-//  COMMAND EXECUTION
+//  SHELL MANAGEMENT & COMMAND EXECUTION
 // ──────────────────────────────────────────────────────────────────────────────
+//
+
+/// Extracts the embedded fish binary to a local user directory (~/.cache).
+/// This is wrapped in OnceLock to prevent redundant disk I/O.
+/// Using a local directory instead of /tmp avoids 'noexec' mount issues.
+fn get_embedded_shell_path() -> &'static PathBuf {
+    EXTRACTED_SHELL.get_or_init(|| {
+        let home = std::env::var("HOME").expect("HOME env var not set");
+        let mut cache_dir = PathBuf::from(home);
+        cache_dir.push(".cache/jinja-rs");
+
+        // Ensure the directory exists
+        fs::create_dir_all(&cache_dir).expect("Failed to create cache directory");
+
+        let mut bin_path = cache_dir;
+        bin_path.push("fish_runtime");
+
+        // Write the embedded bytes to the cache location
+        let mut file = fs::File::create(&bin_path).expect("Failed to create runtime binary");
+        file.write_all(EMBEDDED_FISH)
+            .expect("Failed to write embedded bytes");
+
+        // Set executable permissions (0o755)
+        let mut perms = file
+            .metadata()
+            .expect("Failed to get metadata")
+            .permissions();
+        perms.set_mode(0o755);
+        file.set_permissions(perms)
+            .expect("Failed to set permissions");
+
+        bin_path
+    })
+}
+
 //
 // eval_cmd executes a shell command with layered precedence for shell
 // selection:
 //   1. per‑variable shell override
 //   2. global default_shell
-//   3. "fish" as a hard default
+//   3. "fish" as a hard default (using the embedded binary)
 //
 // It also applies per‑variable working directory and environment overrides.
 // The function returns stdout as a trimmed UTF‑8 string, or an error message.
@@ -116,12 +197,17 @@ pub fn eval_cmd(
     env: Option<&HashMap<String, String>>,
 ) -> String {
     // Determine which shell to use.
-    let shell_bin = shell.or(global_default).unwrap_or("fish");
+    let shell_choice = shell.or(global_default).unwrap_or("fish");
 
-    let args = ["-c", cmd];
+    let mut command = if shell_choice == "fish" {
+        // Use the lazily extracted embedded binary
+        std::process::Command::new(get_embedded_shell_path())
+    } else {
+        // Use the system binary for other shells (e.g., bash, zsh)
+        std::process::Command::new(shell_choice)
+    };
 
-    let mut command = std::process::Command::new(shell_bin);
-    command.args(&args);
+    command.args(["-c", cmd]);
 
     // Apply working directory override.
     if let Some(dir) = cwd {
@@ -151,7 +237,7 @@ pub fn eval_cmd(
 //
 // The main function orchestrates the entire workflow:
 //
-//   1. Parse CLI arguments.
+//   1. Parse CLI arguments (handle --info or --template).
 //   2. Load and deserialize YAML configuration.
 //   3. Build a Rhai engine and dynamically compile function definitions.
 //   4. Register Rhai functions as MiniJinja filters.
@@ -163,7 +249,53 @@ pub fn eval_cmd(
 //
 
 fn main() -> anyhow::Result<()> {
+    // Installl color-eyre backtrace handler
+    common::init();
+
     let cli = Cli::parse();
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Handle the --info flag for debugging embedded resources.
+    // ──────────────────────────────────────────────────────────────────────────
+    if cli.info {
+        println!("jinja-rs v{}", env!("CARGO_PKG_VERSION"));
+        println!("Build Shell Source: {}", env!("EMBEDDED_SHELL_ORIGIN"));
+        println!("Embedded Size: {} bytes", EMBEDDED_FISH.len());
+
+        // Extract and verify the shell
+        let shell_path = get_embedded_shell_path();
+        let _guard = CleanupGuard(shell_path); // Ensure it's deleted after info check
+
+        // Execute 'fish --version' using the embedded binary.
+        // We call the binary DIRECTLY by path to avoid $PATH interference.
+        let output = std::process::Command::new(shell_path)
+            .arg("--version")
+            .output();
+
+        match output {
+            Ok(out) => {
+                let ver = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                println!("Embedded Shell Verification: {} [OK]", ver);
+            },
+            Err(e) => println!("Embedded Shell Verification: FAILED ({})", e),
+        }
+
+        return Ok(());
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Validate and acquire template path.
+    // ──────────────────────────────────────────────────────────────────────────
+    let template_path = cli.template.ok_or_else(|| {
+        anyhow::anyhow!("Error: --template <PATH> is required unless using --info")
+    })?;
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Setup Cleanup Guard.
+    // We initialize the path once; the guard ensures it is wiped on exit.
+    // ──────────────────────────────────────────────────────────────────────────
+    let shell_path = get_embedded_shell_path();
+    let _guard = CleanupGuard(shell_path);
 
     // ──────────────────────────────────────────────────────────────────────────
     // Load YAML configuration (j2.yaml).
@@ -324,7 +456,7 @@ fn main() -> anyhow::Result<()> {
     // previously constructed context. Any filter or variable defined above is
     // now available to the template.
     // ──────────────────────────────────────────────────────────────────────────
-    let template_text = fs::read_to_string(&cli.template)?;
+    let template_text = fs::read_to_string(&template_path)?;
     env.add_template("main", &template_text)?;
 
     let tmpl = env.get_template("main")?;
@@ -338,4 +470,3 @@ fn main() -> anyhow::Result<()> {
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
-mod common;
