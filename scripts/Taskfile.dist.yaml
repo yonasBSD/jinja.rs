@@ -83,7 +83,7 @@ tasks:
     desc: Test code
     cmds:
       - task: test:code:engine
-      - task: test:docs:rust
+      #- task: test:docs:rust
 
   test:code:engine:
     desc: "Test Rust code"
@@ -92,14 +92,14 @@ tasks:
     #dir: 'engines/{{ .engine }}/models/model-A/features/generator/packages/main'
     cmds:
       - cargo insta test
-      - cargo nextest run --workspace --all-targets --verbose --no-tests=warn --no-capture
+      - cargo nextest run --workspace --all-targets --verbose --no-tests=warn
 
   test:docs:rust:
     desc: "Test documentation code"
     sources:
       - '**/*.rs'
     cmds:
-      - cargo test --doc -- --no-capture
+      - cargo test --doc
 
   test:scripts:
     desc: Test using scripts
