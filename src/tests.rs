@@ -2,6 +2,7 @@ mod tests {
     use std::{collections::HashMap, fs, io::Write, sync::Arc};
 
     use minijinja::{Environment, value::Value};
+    use pretty_assertions::assert_eq;
     use rhai::{Dynamic, Engine, Scope};
     use tempfile::{NamedTempFile, tempdir};
 
@@ -13,6 +14,7 @@ mod tests {
 
     #[test]
     fn test_deserialize_empty_config() {
+        common::init();
         let yaml = "";
         let result: Result<RootConfig, _> = serde_yaml::from_str(yaml);
         assert!(result.is_ok());
@@ -23,6 +25,7 @@ mod tests {
 
     #[test]
     fn test_deserialize_config_with_default_shell() {
+        common::init();
         let yaml = r#"
 default_shell: bash
 vars: []
@@ -34,6 +37,7 @@ vars: []
 
     #[test]
     fn test_deserialize_script_variable() {
+        common::init();
         let yaml = r#"
 vars:
   - name: my_var
@@ -48,6 +52,7 @@ vars:
 
     #[test]
     fn test_deserialize_cmd_variable() {
+        common::init();
         let yaml = r#"
 vars:
   - name: output
@@ -60,6 +65,7 @@ vars:
 
     #[test]
     fn test_deserialize_cmds_variable() {
+        common::init();
         let yaml = r#"
 vars:
   - name: multi
@@ -77,6 +83,7 @@ vars:
 
     #[test]
     fn test_deserialize_function_with_arguments() {
+        common::init();
         let yaml = r#"
 vars:
   - function: my_filter
@@ -95,6 +102,7 @@ vars:
 
     #[test]
     fn test_deserialize_variable_with_env_override() {
+        common::init();
         let yaml = r#"
 vars:
   - name: test
@@ -111,6 +119,7 @@ vars:
 
     #[test]
     fn test_deserialize_variable_with_cwd_override() {
+        common::init();
         let yaml = r#"
 vars:
   - name: test
@@ -123,6 +132,7 @@ vars:
 
     #[test]
     fn test_deserialize_variable_with_shell_override() {
+        common::init();
         let yaml = r#"
 vars:
   - name: test
@@ -135,6 +145,7 @@ vars:
 
     #[test]
     fn test_deserialize_complex_config() {
+        common::init();
         let yaml = r#"
 default_shell: bash
 vars:
@@ -163,18 +174,21 @@ vars:
 
     #[test]
     fn test_eval_cmd_simple_echo() {
+        common::init();
         let result = eval_cmd("echo hello", Some("sh"), None, None, None);
         assert_eq!(result, "hello");
     }
 
     #[test]
     fn test_eval_cmd_with_global_default_shell() {
+        common::init();
         let result = eval_cmd("echo test", None, Some("sh"), None, None);
         assert_eq!(result, "test");
     }
 
     #[test]
     fn test_eval_cmd_hardcoded_fish_fallback() {
+        common::init();
         // When both shell and global_default are None, should use "fish"
         // This test will only pass if fish is installed
         let result = eval_cmd("echo fallback", None, None, None, None);
@@ -186,6 +200,7 @@ vars:
 
     #[test]
     fn test_eval_cmd_shell_override_precedence() {
+        common::init();
         // per-variable shell should override global default
         let result = eval_cmd("echo override", Some("sh"), Some("bash"), None, None);
         assert_eq!(result, "override");
@@ -193,6 +208,7 @@ vars:
 
     #[test]
     fn test_eval_cmd_with_cwd() {
+        common::init();
         let temp_dir = tempdir().unwrap();
         let test_file = temp_dir.path().join("test.txt");
         fs::write(&test_file, "content").unwrap();
@@ -209,6 +225,7 @@ vars:
 
     #[test]
     fn test_eval_cmd_with_env_vars() {
+        common::init();
         let mut env = HashMap::new();
         env.insert("TEST_VAR".to_string(), "test_value".to_string());
 
@@ -218,6 +235,7 @@ vars:
 
     #[test]
     fn test_eval_cmd_with_multiple_env_vars() {
+        common::init();
         let mut env = HashMap::new();
         env.insert("VAR1".to_string(), "value1".to_string());
         env.insert("VAR2".to_string(), "value2".to_string());
@@ -228,12 +246,14 @@ vars:
 
     #[test]
     fn test_eval_cmd_trims_whitespace() {
+        common::init();
         let result = eval_cmd("echo '  spaces  '", Some("sh"), None, None, None);
         assert_eq!(result, "spaces");
     }
 
     #[test]
     fn test_eval_cmd_invalid_command() {
+        common::init();
         let result = eval_cmd("nonexistent_command_xyz", Some("sh"), None, None, None);
         // Should contain error message but not panic
         assert!(result.contains("ERROR:") || result.is_empty() || !result.contains("nonexistent"));
@@ -241,6 +261,7 @@ vars:
 
     #[test]
     fn test_eval_cmd_multiline_output() {
+        common::init();
         let result = eval_cmd(
             "printf 'line1\\nline2\\nline3'",
             Some("sh"),
@@ -253,6 +274,7 @@ vars:
 
     #[test]
     fn test_eval_cmd_empty_output() {
+        common::init();
         let result = eval_cmd("true", Some("sh"), None, None, None);
         assert_eq!(result, "");
     }
@@ -263,6 +285,7 @@ vars:
 
     #[test]
     fn test_rhai_simple_arithmetic() {
+        common::init();
         let engine = Engine::new();
         let mut scope = Scope::new();
         let result: Dynamic = engine.eval_with_scope(&mut scope, "2 + 2").unwrap();
@@ -271,6 +294,7 @@ vars:
 
     #[test]
     fn test_rhai_string_operations() {
+        common::init();
         let engine = Engine::new();
         let mut scope = Scope::new();
         let result: Dynamic = engine
@@ -281,6 +305,7 @@ vars:
 
     #[test]
     fn test_rhai_function_compilation() {
+        common::init();
         let engine = Engine::new();
         let script = "fn double(x) { x * 2.0 }";
         let ast = engine.compile(script).unwrap();
@@ -291,6 +316,7 @@ vars:
 
     #[test]
     fn test_rhai_multiple_functions() {
+        common::init();
         let engine = Engine::new();
         let script = r#"
 fn add(a, b) { a + b }
@@ -310,6 +336,7 @@ fn multiply(a, b) { a * b }
 
     #[test]
     fn test_rhai_string_function() {
+        common::init();
         let engine = Engine::new();
         let script = r#"fn greet(name) { "Hello, " + name + "!" }"#;
         let ast = engine.compile(script).unwrap();
@@ -322,6 +349,7 @@ fn multiply(a, b) { a * b }
 
     #[test]
     fn test_rhai_invalid_script() {
+        common::init();
         let engine = Engine::new();
         let result = engine.compile("this is not valid rhai syntax +++");
         assert!(result.is_err());
@@ -333,6 +361,7 @@ fn multiply(a, b) { a * b }
 
     #[test]
     fn test_minijinja_simple_variable() {
+        common::init();
         let mut env = Environment::new();
         env.add_template("test", "Hello {{ name }}!").unwrap();
         let tmpl = env.get_template("test").unwrap();
@@ -346,6 +375,7 @@ fn multiply(a, b) { a * b }
 
     #[test]
     fn test_minijinja_multiple_variables() {
+        common::init();
         let mut env = Environment::new();
         env.add_template("test", "{{ greeting }} {{ name }}!")
             .unwrap();
@@ -361,6 +391,7 @@ fn multiply(a, b) { a * b }
 
     #[test]
     fn test_minijinja_with_filter() {
+        common::init();
         let mut env = Environment::new();
         env.add_filter("upper", |s: String| s.to_uppercase());
         env.add_template("test", "{{ name | upper }}").unwrap();
@@ -375,6 +406,7 @@ fn multiply(a, b) { a * b }
 
     #[test]
     fn test_minijinja_multiline_template() {
+        common::init();
         let mut env = Environment::new();
         env.add_template("test", "Line 1: {{ var1 }}\nLine 2: {{ var2 }}")
             .unwrap();
@@ -390,6 +422,7 @@ fn multiply(a, b) { a * b }
 
     #[test]
     fn test_minijinja_missing_variable() {
+        common::init();
         let mut env = Environment::new();
         env.add_template("test", "{{ missing }}").unwrap();
         let tmpl = env.get_template("test").unwrap();
@@ -406,6 +439,7 @@ fn multiply(a, b) { a * b }
 
     #[test]
     fn test_integration_script_variable_in_template() {
+        common::init();
         let yaml = r#"
 vars:
   - name: result
@@ -435,6 +469,7 @@ vars:
 
     #[test]
     fn test_integration_cmd_variable_in_template() {
+        common::init();
         let yaml = r#"
 vars:
   - name: message
@@ -466,6 +501,7 @@ vars:
 
     #[test]
     fn test_integration_cmds_variable_in_template() {
+        common::init();
         let yaml = r#"
 vars:
   - name: lines
@@ -505,6 +541,7 @@ vars:
 
     #[test]
     fn test_integration_rhai_filter() {
+        common::init();
         let yaml = r#"
 vars:
   - function: double
@@ -562,6 +599,7 @@ vars:
 
     #[test]
     fn test_integration_mixed_variables_and_filters() {
+        common::init();
         let yaml = r#"
 default_shell: sh
 vars:
@@ -656,6 +694,7 @@ vars:
 
     #[test]
     fn test_read_yaml_config_from_file() {
+        common::init();
         let mut temp_file = NamedTempFile::new().unwrap();
         let yaml_content = r#"
 default_shell: bash
@@ -674,6 +713,7 @@ vars:
 
     #[test]
     fn test_read_template_from_file() {
+        common::init();
         let mut temp_file = NamedTempFile::new().unwrap();
         let template_content = "Hello {{ name }}!";
         temp_file.write_all(template_content.as_bytes()).unwrap();
@@ -688,6 +728,7 @@ vars:
 
     #[test]
     fn test_empty_script() {
+        common::init();
         let yaml = r#"
 vars:
   - name: empty
@@ -699,6 +740,7 @@ vars:
 
     #[test]
     fn test_variable_without_name() {
+        common::init();
         let yaml = r#"
 vars:
   - function: my_func
@@ -713,6 +755,7 @@ vars:
 
     #[test]
     fn test_function_without_arguments() {
+        common::init();
         let yaml = r#"
 vars:
   - function: get_constant
@@ -724,6 +767,7 @@ vars:
 
     #[test]
     fn test_special_characters_in_template() {
+        common::init();
         let mut env = Environment::new();
         env.add_template("test", "Special: {{ var }} & < > \" '")
             .unwrap();
@@ -738,6 +782,7 @@ vars:
 
     #[test]
     fn test_very_long_script() {
+        common::init();
         let long_script = format!(r#""{}""#, "a".repeat(1000));
         let engine = Engine::new();
         let mut scope = Scope::new();
@@ -747,6 +792,7 @@ vars:
 
     #[test]
     fn test_command_with_exit_code_non_zero() {
+        common::init();
         let result = eval_cmd("sh -c 'exit 1'", Some("sh"), None, None, None);
         // Command should execute but return empty/error
         // Behavior depends on shell implementation
@@ -757,6 +803,7 @@ vars:
 
     #[test]
     fn test_unicode_in_variables() {
+        common::init();
         let yaml = r#"
 vars:
   - name: emoji
@@ -773,6 +820,7 @@ vars:
 
     #[test]
     fn test_multiple_variables_same_type() {
+        common::init();
         let yaml = r#"
 vars:
   - name: var1
@@ -791,6 +839,7 @@ vars:
 
     #[test]
     fn test_shell_precedence_three_levels() {
+        common::init();
         // Test that per-variable shell > global default > hardcoded default
         let yaml = r#"
 default_shell: bash
