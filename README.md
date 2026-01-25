@@ -273,29 +273,30 @@ vars:
 
 ## 🏗️ Architecture
 
-```
-┌─────────────┐
-│   j2.yaml   │  Configuration
-└──────┬──────┘
-       │
-       ├─────> Rhai Engine ──────> Variables
-       │                           & Filters
-       ├─────> Shell Executor ───> Command Output
-       │
-       ▼
-┌─────────────┐
-│  Template   │
-│   (.j2)     │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│ MiniJinja   │  Rendering
-│   Engine    │
-└──────┬──────┘
-       │
-       ▼
-    Output
+```mermaid
+graph TD
+    A[j2.yaml<br/>Configuration] --> B{Variable Type}
+    B -->|script| C[Rhai Engine]
+    B -->|cmd/cmds| D[Shell Executor]
+    B -->|function| E[Rhai Functions]
+    
+    C --> F[Variables]
+    D --> F
+    E --> G[Custom Filters]
+    
+    H[Template .j2] --> I[MiniJinja Engine]
+    F --> I
+    G --> I
+    
+    I --> J[Rendered Output]
+    
+    style A fill:#e1f5ff,stroke:#0288d1,stroke-width:2px
+    style H fill:#e1f5ff,stroke:#0288d1,stroke-width:2px
+    style I fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style J fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
+    style C fill:#ffe0b2,stroke:#e64a19,stroke-width:2px
+    style D fill:#ffe0b2,stroke:#e64a19,stroke-width:2px
+    style E fill:#ffe0b2,stroke:#e64a19,stroke-width:2px
 ```
 
 ### Design Principles
