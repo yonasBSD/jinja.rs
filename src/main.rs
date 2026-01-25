@@ -11,7 +11,7 @@ use std::{
 
 use clap::Parser;
 use minijinja::{Environment, value::Value};
-use rhai::{AST, Dynamic, Engine, Scope};
+use rhai::{AST, Array as RhaiArray, Dynamic, Engine, Scope};
 use serde::Deserialize;
 
 //
@@ -232,8 +232,45 @@ pub fn eval_cmd(
     }
 }
 
+fn value_to_dynamic(val: &Value) -> Dynamic {
+    use rhai::{Array as RhaiArray, Dynamic};
+
+    if val.is_undefined() || val.is_none() {
+        return Dynamic::UNIT;
+    }
+
+    if let Some(s) = val.as_str() {
+        return Dynamic::from(s.to_string());
+    }
+
+    if val.is_true() {
+        return Dynamic::from_bool(true);
+    }
+
+    if let Ok(i) = i64::try_from(val.clone()) {
+        return Dynamic::from_int(i);
+    }
+
+    if let Ok(f) = f64::try_from(val.clone()) {
+        return Dynamic::from_float(f);
+    }
+
+    if let Ok(iter) = val.try_iter() {
+        let mut arr = RhaiArray::new();
+        for v in iter {
+            arr.push(value_to_dynamic(&v));
+        }
+        return Dynamic::from(arr);
+    }
+
+    // MiniJinja doesn't have a direct way to get a map, so this is a placeholder.
+    // If you need maps, you'll need to implement custom logic.
+
+    Dynamic::from(val.to_string())
+}
+
 fn dynamic_to_value(dyn_val: &Dynamic) -> Value {
-    use rhai::Array as RhaiArray;
+    use minijinja::value::Value;
 
     if dyn_val.is_unit() {
         return Value::from(());
@@ -260,49 +297,7 @@ fn dynamic_to_value(dyn_val: &Dynamic) -> Value {
         return Value::from(vec);
     }
 
-    // Fallback to string
     Value::from(dyn_val.to_string())
-}
-
-fn value_to_dynamic(val: &Value) -> Dynamic {
-    use rhai::{Array as RhaiArray, Dynamic};
-
-    if val.is_undefined() || val.is_none() {
-        return Dynamic::UNIT;
-    }
-
-    match val.kind() {
-        minijinja::value::ValueKind::Bool => {
-            return Dynamic::from_bool(false);
-        },
-        _ => {},
-    }
-
-    if let Some(s) = val.as_str() {
-        return Dynamic::from(s.to_string());
-    }
-
-    if val.is_true() {
-        return Dynamic::from_bool(true);
-    }
-
-    if let Ok(i) = val.clone().try_into() {
-        return Dynamic::from_int(i);
-    }
-
-    if let Ok(f) = val.clone().try_into() {
-        return Dynamic::from_float(f);
-    }
-
-    if let Ok(iter) = val.try_iter() {
-        let mut arr = RhaiArray::new();
-        for v in iter {
-            arr.push(value_to_dynamic(&v));
-        }
-        return Dynamic::from(arr);
-    }
-
-    Dynamic::from(val.to_string())
 }
 
 //
@@ -441,6 +436,7 @@ fn main() -> anyhow::Result<()> {
     // ──────────────────────────────────────────────────────────────────────────
 
     use rhai::CallFnOptions;
+    use minijinja::value::{Rest, Value};
 
     // After loading the YAML and creating the MiniJinja environment...
     for spec in specs {
@@ -448,68 +444,38 @@ fn main() -> anyhow::Result<()> {
             let fn_name = func_name.clone();
             let e = Arc::clone(&arc_engine);
             let a = Arc::clone(&arc_ast);
-            let arg_count = spec.arguments.len();
 
-            // Dynamically register the function based on the number of arguments
-            match arg_count {
-                1 => {
-                    env.add_function(
-                        fn_name.clone(),
-                        move |arg1: Value| -> Result<Value, minijinja::Error> {
-                            let mut scope = Scope::new();
-                            let dyn_arg1 = value_to_dynamic(&arg1);
-                            let result: Dynamic = e
-                                .call_fn_with_options(
-                                    CallFnOptions::new(),
-                                    &mut scope,
-                                    &a,
-                                    &fn_name,
-                                    (dyn_arg1,),
-                                )
-                                .map_err(|err| {
-                                    minijinja::Error::new(
-                                        minijinja::ErrorKind::InvalidOperation,
-                                        format!("Rhai Call Error: {err}"),
-                                    )
-                                })?;
-                            Ok(dynamic_to_value(&result))
-                        },
-                    );
+            // Register a variadic function
+            env.add_function(
+                fn_name.clone(),
+                move |_state: &minijinja::State, args: Rest<Value>|
+                -> Result<Value, minijinja::Error> {
+
+                    let mut scope = Scope::new();
+                    let mut dyn_args = Vec::new();
+
+                    for arg in args.iter() {
+                        dyn_args.push(value_to_dynamic(arg));
+                    }
+
+                    let result: Dynamic = e
+                        .call_fn_with_options(
+                            CallFnOptions::new(),
+                            &mut scope,
+                            &a,
+                            &fn_name,
+                            dyn_args,
+                        )
+                        .map_err(|err| {
+                            minijinja::Error::new(
+                                minijinja::ErrorKind::InvalidOperation,
+                                format!("Rhai Call Error: {err}"),
+                            )
+                        })?;
+
+                    Ok(dynamic_to_value(&result))
                 },
-                2 => {
-                    env.add_function(
-                        fn_name.clone(),
-                        move |arg1: Value, arg2: Value| -> Result<Value, minijinja::Error> {
-                            let mut scope = Scope::new();
-                            let dyn_arg1 = value_to_dynamic(&arg1);
-                            let dyn_arg2 = value_to_dynamic(&arg2);
-                            let result: Dynamic = e
-                                .call_fn_with_options(
-                                    CallFnOptions::new(),
-                                    &mut scope,
-                                    &a,
-                                    &fn_name,
-                                    (dyn_arg1, dyn_arg2),
-                                )
-                                .map_err(|err| {
-                                    minijinja::Error::new(
-                                        minijinja::ErrorKind::InvalidOperation,
-                                        format!("Rhai Call Error: {err}"),
-                                    )
-                                })?;
-                            Ok(dynamic_to_value(&result))
-                        },
-                    );
-                },
-                // Add more cases for 3, 4, etc. arguments as needed.
-                _ => {
-                    return Err(anyhow::anyhow!(
-                        "Function '{}' has {} arguments, but only 1-2 arguments are supported",
-                        fn_name,
-                        arg_count
-                    ));
-                },
-            }
+            );
         }
     }
 

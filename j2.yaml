@@ -47,9 +47,12 @@ vars:
     arguments:
       - name: fname
       - name: lname
+      - name: a
+      - name: b
+      - name: c
     script: |
       let result = "Hello";
-      for arg in [fname, lname] {
+      for arg in [fname, lname, a, b, c] {
           result += " " + arg;
       }
       result
