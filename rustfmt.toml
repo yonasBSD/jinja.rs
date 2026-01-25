@@ -1,0 +1,61 @@
+# ============================================================
+# Rustfmt configuration for engine.rs
+# This file encodes our vertical, declarative, diff-friendly style.
+# ============================================================
+
+# Enable unstable features for Nightly
+unstable_features = true
+style_edition = "2024"
+edition = "2024"
+
+# ------------------------------------------------------------
+# FUNCTION & BLOCK LAYOUT
+# ------------------------------------------------------------
+
+# We prefer block indentation for clarity in nested constructs.
+# This keeps macro-heavy and DSL-heavy code visually clean.
+indent_style = "Block"
+
+# Multi-argument functions and closures should be tall and readable.
+# This dramatically improves scan-ability in command systems and error constructors.
+fn_params_layout = "Tall"
+
+# ------------------------------------------------------------
+# STRUCTS, LITERALS, AND ALIGNMENT
+# ------------------------------------------------------------
+
+# Prevent rustfmt from collapsing structured literals into unreadable one-liners.
+# This preserves intentional vertical formatting.
+struct_lit_single_line = false
+
+# Avoid alignment columns that become long-term maintenance burdens.
+# Zero threshold means: no alignment, ever.
+struct_field_align_threshold = 0
+
+# ------------------------------------------------------------
+# BUILDER CHAINS & DELIMITED EXPRESSIONS
+# ------------------------------------------------------------
+
+# This is especially important for Ariadne/Miette diagnostic builders.
+# It keeps each builder step on its own line instead of forcing awkward wrapping.
+overflow_delimited_expr = true
+
+# ------------------------------------------------------------
+# IMPORT ORGANIZATION
+# ------------------------------------------------------------
+
+# Keep imports tidy and avoid rustfmt exploding them into dozens of lines.
+imports_granularity = "Crate"
+
+# Group imports in a predictable, modern Rust style.
+group_imports = "StdExternalCrate"
+
+# ------------------------------------------------------------
+# MATCH & COMMENT BEHAVIOR
+# ------------------------------------------------------------
+
+# Keep match arms diff-friendly by allowing trailing commas.
+match_block_trailing_comma = true
+
+# Keep comments wrapped to avoid 120-character drift.
+wrap_comments = true

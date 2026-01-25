@@ -1,0 +1,50 @@
+default_shell: fish   # or bash, zsh, etc.
+
+vars:
+  - name: commands_example
+    desc: List of commands
+    cmds:
+      - echo first command
+      - echo second command
+      - echo third command
+
+  - name: env_example
+    desc: Environment variables
+    env:
+      FOO1: "hello-from-env1"
+      FOO2: "hello-from-env2"
+      FOO3: "hello-from-env3"
+    cmd: 'echo "FOO is: $FOO1 $FOO2 $FOO3"'
+
+  - name: cwd_example
+    desc: Demonstrate working directory
+    cwd: /tmp
+    cmd: command ls
+
+  - name: env_cwd_example
+    desc: Demonstrate env + cwd together
+    cmd: echo "Inside $(pwd), BAR=$BAR"
+    cwd: /tmp
+    env:
+      BAR: "value-from-env"
+
+  - name: fish_example
+    desc: Use Fish shell by default
+    cmd: echo hello world | string replace 'world' 'world!'
+
+  - name: shell_example
+    desc: Use another shell via `shell` optional variable (bash in this example)
+    shell: bash
+    cmd: if [[ "true" = "true" ]] ; then echo hello world from $(ps -p $$ -o comm=) ; fi
+
+  - name: script_example
+    desc: Use Rhai scripting
+    script: |
+      print("hello world");
+      "one two three"
+
+  - function: hello
+    arguments:
+      - name: name
+    script: |
+      "Hello " + name
