@@ -335,7 +335,7 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+mod common;
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
-mod common;
