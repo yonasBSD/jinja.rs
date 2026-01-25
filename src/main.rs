@@ -151,28 +151,30 @@ pub struct RootConfig {
 fn get_embedded_shell_path() -> &'static PathBuf {
     EXTRACTED_SHELL.get_or_init(|| {
         let home = std::env::var("HOME").expect("HOME env var not set");
-        let mut cache_dir = PathBuf::from(home);
-        cache_dir.push(".cache/jinja-rs");
-
-        // Ensure the directory exists
+        let cache_dir = PathBuf::from(home).join(".cache/jinja-rs");
         fs::create_dir_all(&cache_dir).expect("Failed to create cache directory");
 
-        let mut bin_path = cache_dir;
-        bin_path.push("fish_runtime");
+        let bin_path = cache_dir.join("fish_runtime");
 
-        // Write the embedded bytes to the cache location
-        let mut file = fs::File::create(&bin_path).expect("Failed to create runtime binary");
-        file.write_all(EMBEDDED_FISH)
-            .expect("Failed to write embedded bytes");
+        // If it already exists, assume it's good to go.
+        // This prevents the "Text file busy" error when re-running.
+        if bin_path.exists() {
+            return bin_path;
+        }
 
-        // Set executable permissions (0o755)
-        let mut perms = file
-            .metadata()
-            .expect("Failed to get metadata")
-            .permissions();
-        perms.set_mode(0o755);
-        file.set_permissions(perms)
-            .expect("Failed to set permissions");
+        match fs::File::create(&bin_path) {
+            Ok(mut file) => {
+                file.write_all(EMBEDDED_FISH)
+                    .expect("Failed to write bytes");
+                let mut perms = file.metadata().expect("Metadata failed").permissions();
+                perms.set_mode(0o755);
+                file.set_permissions(perms).expect("Chmod failed");
+            },
+            // If the file is busy, it means another process/thread is already using it.
+            // That's fine—it means it exists and is functional.
+            Err(e) if e.kind() == std::io::ErrorKind::ExecutableFileBusy => {},
+            Err(e) => panic!("Failed to create runtime binary: {}", e),
+        }
 
         bin_path
     })

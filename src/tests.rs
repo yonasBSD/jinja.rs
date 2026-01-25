@@ -186,16 +186,47 @@ vars:
         assert_eq!(result, "test");
     }
 
+    /// Test eval_cmd logic selection (Mocking the behavior)
+    #[test]
+    fn test_eval_cmd_precedence() {
+        // We can't easily mock the process execution without refactoring eval_cmd,
+        // but we can verify that "echo" works across standard shells.
+
+        // 1. Explicit shell (using sh as it's universal)
+        let res = eval_cmd("echo 'hello'", Some("sh"), None, None, None);
+        assert_eq!(res, "hello");
+
+        // 2. Global default (sh)
+        let res = eval_cmd("echo 'global'", None, Some("sh"), None, None);
+        assert_eq!(res, "global");
+    }
+
+    /// Fixed version of your failing test
     #[test]
     fn test_eval_cmd_hardcoded_fish_fallback() {
-        common::init();
-        // When both shell and global_default are None, should use "fish"
-        // This test will only pass if fish is installed
-        let result = eval_cmd("echo fallback", None, None, None, None);
-        // If fish is not installed, this will contain "ERROR:"
-        if !result.starts_with("ERROR:") {
-            assert_eq!(result, "fallback");
+        // Force extraction of embedded fish if it hasn't happened yet
+        // so that eval_cmd has a valid path to work with.
+        let _path = get_embedded_shell_path();
+
+        // Now run the command
+        let result = eval_cmd("echo 'fallback'", None, None, None, None);
+
+        // Check for error first
+        if result.starts_with("ERROR:") {
+            panic!("eval_cmd failed to use embedded fish: {}", result);
         }
+
+        assert_eq!(result, "fallback");
+    }
+
+    #[test]
+    fn test_eval_cmd_with_env() {
+        let mut env_map = HashMap::new();
+        env_map.insert("TEST_VAR".to_string(), "success".to_string());
+
+        // Use sh for broad compatibility in tests
+        let result = eval_cmd("echo $TEST_VAR", Some("sh"), None, None, Some(&env_map));
+        assert_eq!(result, "success");
     }
 
     #[test]
@@ -467,9 +498,17 @@ vars:
         assert_eq!(output, "Result: 4");
     }
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // INTEGRATION TESTS (Race-Safe)
+    // ══════════════════════════════════════════════════════════════════════════
+
     #[test]
     fn test_integration_cmd_variable_in_template() {
         common::init();
+        // Ensure shell is extracted but DON'T use a guard here in tests.
+        // Multiple tests running in parallel will fight over the guard.
+        let _ = get_embedded_shell_path();
+
         let yaml = r#"
 vars:
   - name: message
@@ -497,6 +536,21 @@ vars:
         let output = tmpl.render(ctx).unwrap();
 
         assert_eq!(output, "Hello from shell");
+    }
+
+    #[test]
+    fn test_cleanup_guard_removes_file() {
+        // Use a UNIQUE filename for this test so it doesn't
+        // nuke the real fish_runtime used by other tests.
+        let file_path = std::env::current_dir()
+            .unwrap()
+            .join("test_cleanup_bin_unique");
+        fs::write(&file_path, b"test").unwrap();
+        {
+            let _guard = crate::CleanupGuard(&file_path);
+            assert!(file_path.exists());
+        }
+        assert!(!file_path.exists());
     }
 
     #[test]

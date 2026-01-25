@@ -1,12 +1,13 @@
 use std::{
     env, fs,
-    io::{BufRead, BufReader},
+    io::{BufRead, BufReader, Read},
     path::PathBuf,
     process::Command,
 };
 
 fn main() {
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let fish_bin = out_dir.join("fish");
 
     let origin = if cfg!(target_os = "freebsd") {
         "FreeBSD Direct Download"
@@ -14,27 +15,46 @@ fn main() {
         "GitHub Releases"
     };
 
-    // Provision the shell binary based on the current platform
-    let fish_bin_path = provision_fish(&out_dir);
-
-    // Communicate back to the main compiler
+    // Inform compiler immediately so main.rs always compiles
     println!("cargo:rustc-env=EMBEDDED_SHELL_ORIGIN={}", origin);
-    println!(
-        "cargo:rustc-env=FISH_BINARY_PATH={}",
-        fish_bin_path.display()
-    );
+    println!("cargo:rustc-env=FISH_BINARY_PATH={}", fish_bin.display());
     println!("cargo:rerun-if-changed=build.rs");
+
+    if !fish_bin.exists() {
+        provision_fish(&out_dir, &fish_bin);
+    }
 }
 
-/// --- FREEBSD LOGIC (Rootless Direct Download & Extract) ---
-#[cfg(target_os = "freebsd")]
-fn provision_fish(out_dir: &PathBuf) -> PathBuf {
-    let fish_bin = out_dir.join("fish");
-    if fish_bin.exists() {
-        return fish_bin;
+/// Helper for parsing FreeBSD's JSONL index
+struct PkgRepoIndex<'a> {
+    reader: BufReader<Box<dyn Read + 'a>>,
+}
+
+impl<'a> PkgRepoIndex<'a> {
+    fn new(reader: impl Read + 'a) -> Self {
+        Self {
+            reader: BufReader::new(Box::new(reader)),
+        }
     }
 
-    // 1. Determine FreeBSD ABI
+    fn find_package_path(&mut self, package_name: &str) -> Option<String> {
+        let name_query = format!("\"name\":\"{}\"", package_name);
+        for line in self.reader.by_ref().lines().flatten() {
+            if line.contains(&name_query) {
+                return line
+                    .split("\"path\":\"")
+                    .nth(1)
+                    .and_then(|s| s.split('"').next())
+                    .map(|s| s.to_string());
+            }
+        }
+        None
+    }
+}
+
+/// --- FREEBSD LOGIC ---
+#[cfg(target_os = "freebsd")]
+fn provision_fish(out_dir: &PathBuf, fish_bin: &PathBuf) {
     let abi_output = Command::new("uname")
         .arg("-K")
         .output()
@@ -42,12 +62,10 @@ fn provision_fish(out_dir: &PathBuf) -> PathBuf {
     let full_version = String::from_utf8_lossy(&abi_output.stdout)
         .trim()
         .to_string();
-
-    // Normalize version: "1403000" -> "14"
     let major_version = if full_version.len() >= 2 {
         &full_version[..2]
     } else {
-        "14" // Fallback
+        "14"
     };
 
     let arch_output = Command::new("uname")
@@ -61,7 +79,6 @@ fn provision_fish(out_dir: &PathBuf) -> PathBuf {
     let abi = format!("FreeBSD:{major_version}:{arch}");
     let base_url = format!("https://pkg.freebsd.org/{abi}/latest");
 
-    // 2. Download and Extract packagesite.pkg (Zstd compressed Tar)
     let packagesite_url = format!("{base_url}/packagesite.pkg");
     let packagesite_path = out_dir.join("packagesite.pkg");
     download_file(&packagesite_url, &packagesite_path);
@@ -70,11 +87,8 @@ fn provision_fish(out_dir: &PathBuf) -> PathBuf {
     let index_decoder = zstd::stream::read::Decoder::new(pkg_index_file).unwrap();
     let mut index_archive = tar::Archive::new(index_decoder);
 
-    let mut fish_pkg_path = None;
-    for entry in index_archive
-        .entries()
-        .expect("Failed to read index entries")
-    {
+    let mut fish_pkg_relative_path = None;
+    for entry in index_archive.entries().expect("Failed to read index") {
         let entry = entry.unwrap();
         if entry
             .path()
@@ -82,29 +96,14 @@ fn provision_fish(out_dir: &PathBuf) -> PathBuf {
             .to_string_lossy()
             .ends_with("packagesite.yaml")
         {
-            let reader = BufReader::new(entry);
-            for line in reader.lines() {
-                let l = line.unwrap();
-                // Parse the JSONL line for the fish package
-                if l.contains("\"name\":\"fish\"") {
-                    if let Some(p) = l
-                        .split("\"path\":\"")
-                        .nth(1)
-                        .and_then(|s| s.split('"').next())
-                    {
-                        fish_pkg_path = Some(p.to_string());
-                        break;
-                    }
-                }
-            }
+            let mut index = PkgRepoIndex::new(entry);
+            fish_pkg_relative_path = index.find_package_path("fish");
+            break;
         }
     }
 
-    let fish_pkg_relative_path =
-        fish_pkg_path.expect("Could not locate fish package in repo index");
-
-    // 3. Download and Extract the actual fish .pkg
-    let fish_pkg_url = format!("{base_url}/{fish_pkg_relative_path}");
+    let rel_path = fish_pkg_relative_path.expect("Fish not found in index");
+    let fish_pkg_url = format!("{base_url}/{rel_path}");
     let fish_pkg_local = out_dir.join("fish.pkg");
     download_file(&fish_pkg_url, &fish_pkg_local);
 
@@ -112,41 +111,27 @@ fn provision_fish(out_dir: &PathBuf) -> PathBuf {
     let pkg_decoder = zstd::stream::read::Decoder::new(pkg_file).unwrap();
     let mut pkg_archive = tar::Archive::new(pkg_decoder);
 
-    let mut found = false;
-    for entry in pkg_archive.entries().expect("Failed to read pkg entries") {
+    for entry in pkg_archive.entries().expect("Failed to read pkg") {
         let mut entry = entry.unwrap();
-        let path = entry.path().unwrap();
-
-        if path.to_string_lossy().ends_with("bin/fish") {
-            let mut out_file = fs::File::create(&fish_bin).unwrap();
+        if entry
+            .path()
+            .unwrap()
+            .to_string_lossy()
+            .ends_with("bin/fish")
+        {
+            let mut out_file = fs::File::create(fish_bin).unwrap();
             std::io::copy(&mut entry, &mut out_file).unwrap();
-            found = true;
             break;
         }
     }
 
-    if !found {
-        panic!("Could not extract fish binary from downloaded .pkg");
-    }
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&fish_bin, fs::Permissions::from_mode(0o755)).unwrap();
-    }
-
-    fish_bin
+    set_executable(fish_bin);
 }
 
-/// --- NON-FREEBSD LOGIC (Linux/macOS) ---
+/// --- LINUX / MACOS LOGIC ---
 #[cfg(not(target_os = "freebsd"))]
-fn provision_fish(out_dir: &PathBuf) -> PathBuf {
+fn provision_fish(out_dir: &PathBuf, fish_bin: &PathBuf) {
     use flate2::read::GzDecoder;
-
-    let fish_bin = out_dir.join("fish_runtime");
-    if fish_bin.exists() {
-        return fish_bin;
-    }
 
     let config = release_dep::Config {
         package: "fish",
@@ -156,39 +141,40 @@ fn provision_fish(out_dir: &PathBuf) -> PathBuf {
         timeout: None,
     };
 
-    let release = release_dep::get_release(config).expect("Failed to download fish");
+    let release = release_dep::get_release(config).expect("Failed to download fish from GitHub");
     let tar_gz = fs::File::open(&release.downloaded_file).unwrap();
     let tar = GzDecoder::new(tar_gz);
     let mut archive = tar::Archive::new(tar);
 
-    for entry in archive.entries().unwrap() {
+    for entry in archive
+        .entries()
+        .expect("Failed to read GitHub release tarball")
+    {
         let mut entry = entry.unwrap();
         let path = entry.path().unwrap();
         if path.file_name().and_then(|s| s.to_str()) == Some("fish") {
-            let mut out_file = fs::File::create(&fish_bin).unwrap();
+            let mut out_file = fs::File::create(fish_bin).unwrap();
             std::io::copy(&mut entry, &mut out_file).unwrap();
             break;
         }
     }
 
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&fish_bin, fs::Permissions::from_mode(0o755)).unwrap();
-    }
-
-    println!("cargo:rustc-env=EMBEDDED_SHELL_ORIGIN=GitHub Releases");
-    fish_bin
+    set_executable(fish_bin);
 }
 
-/// Robust HTTP downloader using ureq 3.x
 fn download_file(url: &str, dest: &PathBuf) {
     let mut resp = ureq::get(url)
         .call()
-        .unwrap_or_else(|e| panic!("Failed to GET {url}: {e}"));
-
+        .unwrap_or_else(|e| panic!("GET {url} failed: {e}"));
     let mut reader = resp.body_mut().as_reader();
-    let mut out_file = fs::File::create(dest).expect("Failed to create destination file");
+    let mut out_file = fs::File::create(dest).unwrap();
+    std::io::copy(&mut reader, &mut out_file).unwrap();
+}
 
-    std::io::copy(&mut reader, &mut out_file).expect("Failed to write to destination");
+fn set_executable(path: &PathBuf) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o755)).unwrap();
+    }
 }
