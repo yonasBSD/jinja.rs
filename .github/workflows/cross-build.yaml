@@ -26,10 +26,8 @@ jobs:
         os:
           - arch: ubuntu-latest
             name: Ubuntu
-
           - arch: macos-latest
             name: Mac OS X
-
           - arch: windows-latest
             name: Windows
         rust: [stable]
@@ -126,38 +124,11 @@ jobs:
           usesh: true
           sync: rsync
           copyback: false
+          envs: GITHUB_TOKEN
           prepare: |
-            mkdir -p /usr/local/etc/pkg/repos
-            cat << EOF > /usr/local/etc/pkg/repos/FreeBSD.conf
-            FreeBSD-ports: {
-              url: "https://pkg.FreeBSD.org/\${ABI}/latest",
-              mirror_type: "none",
-              signature_type: "fingerprints",
-              fingerprints: "/usr/share/keys/pkg",
-              enabled: yes
-            }
-            EOF
-            cat << EOF > /usr/local/etc/pkg/repos/kmods.conf
-            FreeBSD-ports-kmods: {
-              url: "https://pkg.FreeBSD.org/\${ABI}/kmods_latest",
-              mirror_type: "none",
-              signature_type: "fingerprints",
-              fingerprints: "/usr/share/keys/pkg",
-              enabled: yes
-            }
-            EOF
             pkg update -f ; pkg install -y curl rust-nightly
-
           run: |
-            pwd
-            ls -lah
-            whoami
-            env
-            freebsd-version
-            sysctl hw.model
-            sysctl hw.ncpu
-            sysctl hw.physmem
-            sysctl hw.usermem
+            export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
             cd ${{ env.FEATURE_PATH }} && cargo test --all-features
 
   openbsd:
@@ -207,14 +178,11 @@ jobs:
           usesh: true
           sync: rsync
           copyback: false
+          envs: GITHUB_TOKEN
           prepare: |
             pkg_add curl rust
-
           run: |
-            pwd
-            ls -lah
-            whoami
-            env
+            export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
             cd ${{ env.FEATURE_PATH }} && cargo test --all-features
 
   alpine:
@@ -254,6 +222,8 @@ jobs:
           branch: edge
 
       - name: Run tests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           apk add cargo
           cd ${{ env.FEATURE_PATH }} && cargo test --all-features
@@ -300,12 +270,67 @@ jobs:
           packages: "rust"
 
       - name: Run tests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd ${{ env.FEATURE_PATH }} && cargo test --all-features
 
-# TODO: Add support for more OSs
-# - OpenSUSE
-# - Rocky Linux
-# - Fedora
-# - Gentoo
-# - Slackware
+  fedora:
+    name: Fedora
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: dnf install -y rust cargo gcc
+
+      - name: Run tests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd ${{ env.FEATURE_PATH }} && cargo test --all-features
+
+  opensuse:
+    name: OpenSUSE
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    container: opensuse/tumbleweed
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: zypper install -y rust cargo gcc
+
+      - name: Run tests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd ${{ env.FEATURE_PATH }} && cargo test --all-features
+
+  gentoo:
+    name: Gentoo
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    container: gentoo/stage3
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Run tests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Gentoo stage3 doesn't come with much; we use the binary rust for speed in CI
+          emerge --sync --quiet
+          emerge --ask n --verbose dev-lang/rust-bin
+          cd ${{ env.FEATURE_PATH }} && cargo test --all-features
