@@ -16,7 +16,7 @@ fn main() {
     };
 
     // Inform compiler immediately so main.rs always compiles
-    println!("cargo:rustc-env=EMBEDDED_SHELL_ORIGIN={}", origin);
+    println!("cargo:rustc-env=EMBEDDED_SHELL_ORIGIN={origin}");
     println!("cargo:rustc-env=FISH_BINARY_PATH={}", fish_bin.display());
     println!("cargo:rerun-if-changed=build.rs");
 
@@ -38,14 +38,14 @@ impl<'a> PkgRepoIndex<'a> {
     }
 
     fn find_package_path(&mut self, package_name: &str) -> Option<String> {
-        let name_query = format!("\"name\":\"{}\"", package_name);
-        for line in self.reader.by_ref().lines().flatten() {
+        let name_query = format!("\"name\":\"{package_name}\"");
+        for line in self.reader.by_ref().lines().map_while(Result::ok) {
             if line.contains(&name_query) {
                 return line
                     .split("\"path\":\"")
                     .nth(1)
                     .and_then(|s| s.split('"').next())
-                    .map(|s| s.to_string());
+                    .map(std::string::ToString::to_string);
             }
         }
         None

@@ -38,7 +38,7 @@ static EXTRACTED_SHELL: OnceLock<PathBuf> = OnceLock::new();
 //
 
 struct CleanupGuard<'a>(&'a PathBuf);
-impl<'a> Drop for CleanupGuard<'a> {
+impl Drop for CleanupGuard<'_> {
     fn drop(&mut self) {
         let _ = std::fs::remove_file(self.0);
     }
@@ -146,7 +146,7 @@ pub struct RootConfig {
 //
 
 /// Extracts the embedded fish binary to a local user directory (~/.cache).
-/// This is wrapped in OnceLock to prevent redundant disk I/O.
+/// This is wrapped in `OnceLock` to prevent redundant disk I/O.
 /// Using a local directory instead of /tmp avoids 'noexec' mount issues.
 fn get_embedded_shell_path() -> &'static PathBuf {
     EXTRACTED_SHELL.get_or_init(|| {
@@ -173,7 +173,7 @@ fn get_embedded_shell_path() -> &'static PathBuf {
             // If the file is busy, it means another process/thread is already using it.
             // That's fine—it means it exists and is functional.
             Err(e) if e.kind() == std::io::ErrorKind::ExecutableFileBusy => {},
-            Err(e) => panic!("Failed to create runtime binary: {}", e),
+            Err(e) => panic!("Failed to create runtime binary: {e}"),
         }
 
         bin_path
@@ -191,6 +191,7 @@ fn get_embedded_shell_path() -> &'static PathBuf {
 // The function returns stdout as a trimmed UTF‑8 string, or an error message.
 //
 
+#[must_use]
 pub fn eval_cmd(
     cmd: &str,
     shell: Option<&str>,
@@ -228,7 +229,7 @@ pub fn eval_cmd(
 
     match output {
         Ok(out) => String::from_utf8_lossy(&out.stdout).trim().to_string(),
-        Err(e) => format!("ERROR: {}", e),
+        Err(e) => format!("ERROR: {e}"),
     }
 }
 
@@ -345,9 +346,9 @@ fn main() -> anyhow::Result<()> {
         match output {
             Ok(out) => {
                 let ver = String::from_utf8_lossy(&out.stdout).trim().to_string();
-                println!("Embedded Shell Verification: {} [OK]", ver);
+                println!("Embedded Shell Verification: {ver} [OK]");
             },
-            Err(e) => println!("Embedded Shell Verification: FAILED ({})", e),
+            Err(e) => println!("Embedded Shell Verification: FAILED ({e})"),
         }
 
         return Ok(());
@@ -435,8 +436,8 @@ fn main() -> anyhow::Result<()> {
     // support multiple arguments by mapping MiniJinja values into Rhai Dynamics.
     // ──────────────────────────────────────────────────────────────────────────
 
-    use rhai::CallFnOptions;
     use minijinja::value::{Rest, Value};
+    use rhai::CallFnOptions;
 
     // After loading the YAML and creating the MiniJinja environment...
     for spec in specs {
@@ -448,9 +449,9 @@ fn main() -> anyhow::Result<()> {
             // Register a variadic function
             env.add_function(
                 fn_name.clone(),
-                move |_state: &minijinja::State, args: Rest<Value>|
-                -> Result<Value, minijinja::Error> {
-
+                move |_state: &minijinja::State,
+                      args: Rest<Value>|
+                      -> Result<Value, minijinja::Error> {
                     let mut scope = Scope::new();
                     let mut dyn_args = Vec::new();
 
@@ -500,7 +501,7 @@ fn main() -> anyhow::Result<()> {
 
                 let result: Dynamic = arc_engine
                     .eval_with_scope(&mut scope, &spec.script)
-                    .map_err(|err| anyhow::anyhow!("Rhai Script Error: {}", err))?;
+                    .map_err(|err| anyhow::anyhow!("Rhai Script Error: {err}"))?;
 
                 ctx.insert(name.clone(), dynamic_to_value(&result));
             }
