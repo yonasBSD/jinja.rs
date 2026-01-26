@@ -114,6 +114,11 @@ jobs:
             0.freebsd.pool.ntp.org:443
             2.freebsd.pool.ntp.org:443
             pkg.FreeBSD.org:443
+            pkg.freebsd.org:443
+            _https._tcp.pkg.freebsd.org:443
+            2.freebsd.pool.ntp.org:123
+            0.freebsd.pool.ntp.org:123
+            2.122.168.192.in-addr.arpa:443
 
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
