@@ -1,6 +1,7 @@
 mod tests {
     use std::{collections::HashMap, fs, io::Write, sync::Arc};
 
+    use jinja_rs::*;
     use minijinja::{Environment, value::Value};
     use pretty_assertions::assert_eq;
     use rhai::{Dynamic, Engine, Scope};
@@ -189,6 +190,8 @@ vars:
     /// Test eval_cmd logic selection (Mocking the behavior)
     #[test]
     fn test_eval_cmd_precedence() {
+        common::init();
+
         // We can't easily mock the process execution without refactoring eval_cmd,
         // but we can verify that "echo" works across standard shells.
 
@@ -204,6 +207,8 @@ vars:
     /// Fixed version of your failing test
     #[test]
     fn test_eval_cmd_hardcoded_fish_fallback() {
+        common::init();
+
         // Force extraction of embedded fish if it hasn't happened yet
         // so that eval_cmd has a valid path to work with.
         let _path = get_embedded_shell_path();
@@ -221,6 +226,8 @@ vars:
 
     #[test]
     fn test_eval_cmd_with_env() {
+        common::init();
+
         let mut env_map = HashMap::new();
         env_map.insert("TEST_VAR".to_string(), "success".to_string());
 
@@ -469,6 +476,17 @@ fn multiply(a, b) { a * b }
     // ══════════════════════════════════════════════════════════════════════════
 
     #[test]
+    fn test_target_detection_not_panicking() {
+        common::init();
+
+        // This ensures that the environment detection logic
+        // we use in build.rs works on the current CI runner.
+        let (arch, env) = detect_target();
+        assert!(arch == "x86_64" || arch == "aarch64");
+        assert!(env == "musl" || env == "gnu");
+    }
+
+    #[test]
     fn test_integration_script_variable_in_template() {
         common::init();
         let yaml = r#"
@@ -540,6 +558,8 @@ vars:
 
     #[test]
     fn test_cleanup_guard_removes_file() {
+        common::init();
+
         // Use a UNIQUE filename for this test so it doesn't
         // nuke the real fish_runtime used by other tests.
         let file_path = std::env::current_dir()
