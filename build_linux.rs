@@ -7,9 +7,9 @@ use crate::set_executable;
 
 /// Entry point called from build.rs
 pub fn provision_fish(out_dir: &PathBuf, fish_bin: &PathBuf) {
-    let arch = detect_arch();
+    let (arch, env) = detect_target();
     let release = fetch_latest_release();
-    let (asset_name, asset_url) = select_asset(&release, arch);
+    let (asset_name, asset_url) = select_asset(&release, arch, env);
 
     let archive_path = out_dir.join(&asset_name);
     download(&asset_url, &archive_path);
@@ -17,18 +17,23 @@ pub fn provision_fish(out_dir: &PathBuf, fish_bin: &PathBuf) {
     extract_fish_from_xz(&archive_path, fish_bin);
 }
 
-/// Detect CPU architecture (normalized)
-fn detect_arch() -> &'static str {
-    let out = std::process::Command::new("uname")
-        .arg("-m")
-        .output()
-        .expect("uname -m failed");
-
-    match String::from_utf8_lossy(&out.stdout).trim() {
-        "x86_64" | "amd64" => "x86_64",
-        "aarch64" | "arm64" => "aarch64",
+/// Detect architecture and C-library (gnu vs musl)
+fn detect_target() -> (&'static str, &'static str) {
+    // Detect Architecture
+    let arch = match std::env::consts::ARCH {
+        "x86_64" => "x86_64",
+        "aarch64" => "aarch64",
         other => panic!("Unsupported architecture: {other}"),
-    }
+    };
+
+    // Detect C-Library (Alpine uses musl)
+    // We check for the existence of the musl loader to confirm environment
+    let is_musl = std::path::Path::new("/lib/ld-musl-x86_64.so.1").exists()
+        || std::path::Path::new("/lib/ld-musl-aarch64.so.1").exists();
+
+    let env = if is_musl { "musl" } else { "gnu" };
+
+    (arch, env)
 }
 
 /// Fetch the latest GitHub release JSON (ureq 3.x)
@@ -50,11 +55,9 @@ fn fetch_latest_release() -> serde_json::Value {
     serde_json::from_str(&text).expect("Invalid JSON from GitHub")
 }
 
-/// Select the correct asset for this OS + architecture
-fn select_asset(release: &serde_json::Value, arch: &str) -> (String, String) {
+/// Select the correct asset for OS + Arch + Libc
+fn select_asset(release: &serde_json::Value, arch: &str, env: &str) -> (String, String) {
     let assets = release["assets"].as_array().expect("No assets in release");
-
-    let wanted = format!("linux-{arch}");
 
     for asset in assets {
         let name = asset["name"]
@@ -62,8 +65,20 @@ fn select_asset(release: &serde_json::Value, arch: &str) -> (String, String) {
             .expect("Asset missing name")
             .to_lowercase();
 
-        if name.contains("linux")
-            && name.contains(&wanted)
+        let matches_linux = name.contains("linux");
+        let matches_arch = name.contains(arch);
+
+        // Logic: If on Alpine, we MUST have 'musl' in the filename.
+        // If on standard Linux, we should avoid 'musl' builds.
+        let matches_env = if env == "musl" {
+            name.contains("musl")
+        } else {
+            !name.contains("musl")
+        };
+
+        if matches_linux
+            && matches_arch
+            && matches_env
             && (name.ends_with(".tar.xz") || name.ends_with(".txz"))
         {
             let url = asset["browser_download_url"]
@@ -75,7 +90,7 @@ fn select_asset(release: &serde_json::Value, arch: &str) -> (String, String) {
         }
     }
 
-    panic!("No matching fish asset found for arch {arch}");
+    panic!("No matching fish asset found for {arch}-{env} on Linux");
 }
 
 /// Download a file from GitHub (ureq 3.x)
