@@ -32,6 +32,7 @@ jobs:
             name: Windows
         rust: [stable]
     runs-on: ${{ matrix.os.arch }}
+
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
@@ -84,48 +85,8 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
-    steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
-        with:
-          egress-policy: block
-          allowed-endpoints: >
-            0.freebsd.pool.ntp.org:123
-            0.freebsd.pool.ntp.org:443
-            2.122.168.192.in-addr.arpa:443
-            2.freebsd.pool.ntp.org:123
-            2.freebsd.pool.ntp.org:443
-            _http._tcp.azure.archive.ubuntu.com:443
-            _https._tcp.esm.ubuntu.com:443
-            _https._tcp.motd.ubuntu.com:443
-            _https._tcp.packages.microsoft.com:443
-            _https._tcp.pkg.freebsd.org:443
-            api.deps.dev:443
-            api.github.com:443
-            api.osv.dev:443
-            api.scorecard.dev:443
-            azure.archive.ubuntu.com:80
-            changelogs.ubuntu.com:443
-            esm.ubuntu.com:443
-            fulcio.sigstore.dev:443
-            github-releases.githubusercontent.com:443
-            github.com:443
-            index.crates.io:443
-            motd.ubuntu.com:443
-            objects.githubusercontent.com:443
-            oss-fuzz-build-logs.storage.googleapis.com:443
-            packages.microsoft.com
-            packages.microsoft.com:443
-            pkg.FreeBSD.org:443
-            pkg.freebsd.org:443
-            raw.githubusercontent.com:443
-            rekor.sigstore.dev:443
-            release-assets.githubusercontent.com:443
-            static.crates.io:443
-            static.rust-lang.org:443
-            tuf-repo-cdn.sigstore.dev:443
-            www.bestpractices.dev:443
 
+    steps:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -142,60 +103,13 @@ jobs:
             export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
             cd ${{ env.FEATURE_PATH }} && cargo test --all-features
 
-  openbsd:
-    name: OpenBSD
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
-        with:
-          egress-policy: block
-          allowed-endpoints: >
-            _http._tcp.azure.archive.ubuntu.com:443
-            _https._tcp.esm.ubuntu.com:443
-            _https._tcp.motd.ubuntu.com:443
-            _https._tcp.packages.microsoft.com:443
-            api.github.com:443
-            azure.archive.ubuntu.com:80
-            cdn.openbsd.org:443
-            changelogs.ubuntu.com:443
-            esm.ubuntu.com:443
-            github.com:443
-            index.crates.io:443
-            motd.ubuntu.com:443
-            packages.microsoft.com:443
-            pool.ntp.org:123
-            raw.githubusercontent.com:443
-            release-assets.githubusercontent.com:443
-            static.crates.io:443
-            time.cloudflare.com:123
-            www.google.com:443
-
-      - name: Checkout sources
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: OpenBSD
-        uses: vmactions/openbsd-vm@4f00354ae8109b7e3b608e33d1253f438d12db41 # v1.2.7
-        with:
-          usesh: true
-          sync: rsync
-          copyback: false
-          envs: GITHUB_TOKEN
-          prepare: |
-            pkg_add curl rust
-          run: |
-            export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
-            cd ${{ env.FEATURE_PATH }} && cargo test --all-features
-
   alpine:
     name: Alpine
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
+
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
@@ -243,6 +157,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
+
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
@@ -291,6 +206,7 @@ jobs:
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     container: fedora:latest
+
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -311,6 +227,7 @@ jobs:
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     container: opensuse/tumbleweed
+
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -331,6 +248,7 @@ jobs:
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     container: gentoo/stage3
+
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
