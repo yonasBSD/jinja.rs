@@ -1,7 +1,6 @@
 mod tests {
     use std::{collections::HashMap, fs, io::Write, sync::Arc};
 
-    use jinja_rs::*;
     use minijinja::{Environment, value::Value};
     use pretty_assertions::assert_eq;
     use rhai::{Dynamic, Engine, Scope};
@@ -478,6 +477,8 @@ fn multiply(a, b) { a * b }
     #[cfg(not(target_os = "freebsd"))]
     #[test]
     fn test_target_detection_not_panicking() {
+        use jinja_rs::*;
+
         common::init();
 
         // This ensures that the environment detection logic
