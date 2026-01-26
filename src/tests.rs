@@ -16,7 +16,7 @@ mod tests {
     fn test_deserialize_empty_config() {
         common::init();
         let yaml = "";
-        let result: Result<RootConfig, _> = serde_yaml::from_str(yaml);
+        let result: Result<RootConfig, _> = serde_yml::from_str(yaml);
         assert!(result.is_ok());
         let config = result.unwrap();
         assert!(config.default_shell.is_none());
@@ -30,7 +30,7 @@ mod tests {
 default_shell: bash
 vars: []
 "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         assert_eq!(config.default_shell, Some("bash".to_string()));
         assert!(config.vars.is_empty());
     }
@@ -43,7 +43,7 @@ vars:
   - name: my_var
     script: "42"
 "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         assert_eq!(config.vars.len(), 1);
         assert_eq!(config.vars[0].name, Some("my_var".to_string()));
         assert_eq!(config.vars[0].script, "42");
@@ -58,7 +58,7 @@ vars:
   - name: output
     cmd: "echo hello"
 "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         assert_eq!(config.vars.len(), 1);
         assert_eq!(config.vars[0].cmd, Some("echo hello".to_string()));
     }
@@ -73,7 +73,7 @@ vars:
       - "echo line1"
       - "echo line2"
 "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         assert_eq!(config.vars.len(), 1);
         let cmds = config.vars[0].cmds.as_ref().unwrap();
         assert_eq!(cmds.len(), 2);
@@ -92,7 +92,7 @@ vars:
       - name: param
     script: "input + param"
 "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         assert_eq!(config.vars.len(), 1);
         assert_eq!(config.vars[0].function, Some("my_filter".to_string()));
         assert_eq!(config.vars[0].arguments.len(), 2);
@@ -111,7 +111,7 @@ vars:
       FOO: bar
       BAZ: qux
 "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         let env = config.vars[0].env.as_ref().unwrap();
         assert_eq!(env.get("FOO"), Some(&"bar".to_string()));
         assert_eq!(env.get("BAZ"), Some(&"qux".to_string()));
@@ -126,7 +126,7 @@ vars:
     cmd: "pwd"
     cwd: "/tmp"
 "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         assert_eq!(config.vars[0].cwd, Some("/tmp".to_string()));
     }
 
@@ -139,7 +139,7 @@ vars:
     cmd: "echo hi"
     shell: bash
 "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         assert_eq!(config.vars[0].shell, Some("bash".to_string()));
     }
 
@@ -163,7 +163,7 @@ vars:
       - "uname -m"
     shell: sh
 "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         assert_eq!(config.default_shell, Some("bash".to_string()));
         assert_eq!(config.vars.len(), 4);
     }
@@ -476,7 +476,7 @@ vars:
   - name: result
     script: "2 + 2"
 "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         let engine = Engine::new();
         let mut ctx = HashMap::new();
 
@@ -514,7 +514,7 @@ vars:
   - name: message
     cmd: "echo 'Hello from shell'"
 "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         let mut ctx = HashMap::new();
 
         for spec in &config.vars {
@@ -564,7 +564,7 @@ vars:
       - "echo 'second'"
       - "echo 'third'"
 "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         let mut ctx = HashMap::new();
 
         for spec in &config.vars {
@@ -603,7 +603,7 @@ vars:
       - name: num
     script: "parse_int(num) * 2"
 "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         let engine = Engine::new();
 
         let mut func_defs = String::new();
@@ -666,7 +666,7 @@ vars:
       - name: text
     script: "text.to_upper() + \"!\""
 "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         let engine = Engine::new();
 
         // Build function definitions
@@ -759,7 +759,7 @@ vars:
         temp_file.write_all(yaml_content.as_bytes()).unwrap();
 
         let content = fs::read_to_string(temp_file.path()).unwrap();
-        let config: RootConfig = serde_yaml::from_str(&content).unwrap();
+        let config: RootConfig = serde_yml::from_str(&content).unwrap();
 
         assert_eq!(config.default_shell, Some("bash".to_string()));
         assert_eq!(config.vars.len(), 1);
@@ -788,7 +788,7 @@ vars:
   - name: empty
     script: ""
 "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         assert_eq!(config.vars[0].script, "");
     }
 
@@ -802,7 +802,7 @@ vars:
       - name: x
     script: "x * 2"
 "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         assert!(config.vars[0].name.is_none());
         assert!(config.vars[0].function.is_some());
     }
@@ -815,7 +815,7 @@ vars:
   - function: get_constant
     script: "42"
 "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         assert_eq!(config.vars[0].arguments.len(), 0);
     }
 
@@ -863,7 +863,7 @@ vars:
   - name: emoji
     script: "\"🚀 Hello 世界\""
     "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         let engine = Engine::new();
         let mut scope = Scope::new();
         let result: Dynamic = engine
@@ -884,7 +884,7 @@ vars:
   - name: var3
     script: "3"
 "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         assert_eq!(config.vars.len(), 3);
         assert_eq!(config.vars[0].name, Some("var1".to_string()));
         assert_eq!(config.vars[1].name, Some("var2".to_string()));
@@ -907,7 +907,7 @@ vars:
     cmd: "echo test"
     shell: sh
 "#;
-        let config: RootConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: RootConfig = serde_yml::from_str(yaml).unwrap();
 
         // var with shell override should use "sh"
         let result1 = eval_cmd(

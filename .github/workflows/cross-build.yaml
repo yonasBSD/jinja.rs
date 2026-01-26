@@ -13,7 +13,7 @@ on:
       - completed
 
 env:
-  FEATURE_PATH: engines/yonasBSD/models/model-A/features/generator/packages/main
+  FEATURE_PATH: ./
 
 jobs:
   test:
