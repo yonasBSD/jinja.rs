@@ -3,7 +3,7 @@ use std::{fs, io::Read, path::PathBuf};
 use tar::Archive;
 use xz2::read::XzDecoder;
 
-use crate::set_executable;
+use crate::*;
 
 /// Entry point called from build.rs
 pub fn provision_fish(out_dir: &PathBuf, fish_bin: &PathBuf) {
@@ -18,20 +18,21 @@ pub fn provision_fish(out_dir: &PathBuf, fish_bin: &PathBuf) {
 }
 
 /// Detect architecture and C-library (gnu vs musl)
-fn detect_target() -> (&'static str, &'static str) {
-    // Detect Architecture
+pub fn detect_target() -> (&'static str, &'static str) {
     let arch = match std::env::consts::ARCH {
         "x86_64" => "x86_64",
         "aarch64" => "aarch64",
         other => panic!("Unsupported architecture: {other}"),
     };
 
-    // Detect C-Library (Alpine uses musl)
-    // We check for the existence of the musl loader to confirm environment
-    let is_musl = std::path::Path::new("/lib/ld-musl-x86_64.so.1").exists()
-        || std::path::Path::new("/lib/ld-musl-aarch64.so.1").exists();
-
-    let env = if is_musl { "musl" } else { "gnu" };
+    // Cargo tells us the target environment directly
+    let env = match std::env::var("CARGO_CFG_TARGET_ENV")
+        .unwrap_or_default()
+        .as_str()
+    {
+        "musl" => "musl",
+        _ => "gnu",
+    };
 
     (arch, env)
 }
@@ -68,7 +69,7 @@ fn select_asset(release: &serde_json::Value, arch: &str, env: &str) -> (String, 
         let matches_linux = name.contains("linux");
         let matches_arch = name.contains(arch);
 
-        // Logic: If on Alpine, we MUST have 'musl' in the filename.
+        // If on Alpine, we MUST have 'musl' in the filename.
         // If on standard Linux, we should avoid 'musl' builds.
         let matches_env = if env == "musl" {
             name.contains("musl")
