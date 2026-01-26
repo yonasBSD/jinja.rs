@@ -7,9 +7,9 @@ use crate::*;
 
 /// Entry point called from build.rs
 pub fn provision_fish(out_dir: &PathBuf, fish_bin: &PathBuf) {
-    let (arch, env) = detect_target();
+    let (arch, _) = detect_target();
     let release = fetch_latest_release();
-    let (asset_name, asset_url) = select_asset(&release, arch, env);
+    let (asset_name, asset_url) = select_asset(&release, arch);
 
     let archive_path = out_dir.join(&asset_name);
     download(&asset_url, &archive_path);
@@ -17,7 +17,7 @@ pub fn provision_fish(out_dir: &PathBuf, fish_bin: &PathBuf) {
     extract_fish_from_xz(&archive_path, fish_bin);
 }
 
-/// Detect architecture and C-library (gnu vs musl)
+/// Detect architecture
 pub fn detect_target() -> (&'static str, &'static str) {
     let arch = match std::env::consts::ARCH {
         "x86_64" => "x86_64",
@@ -25,7 +25,8 @@ pub fn detect_target() -> (&'static str, &'static str) {
         other => panic!("Unsupported architecture: {other}"),
     };
 
-    // Cargo tells us the target environment directly
+    // We keep the env detection for logging/metadata,
+    // but we no longer use it to restrict asset selection.
     let env = match std::env::var("CARGO_CFG_TARGET_ENV")
         .unwrap_or_default()
         .as_str()
@@ -56,8 +57,10 @@ fn fetch_latest_release() -> serde_json::Value {
     serde_json::from_str(&text).expect("Invalid JSON from GitHub")
 }
 
-/// Select the correct asset for OS + Arch + Libc
-fn select_asset(release: &serde_json::Value, arch: &str, env: &str) -> (String, String) {
+/// Select the correct asset for Linux + Arch
+/// Since the 'linux-x86_64' binaries work on both glibc and musl,
+/// we look for the general linux asset.
+fn select_asset(release: &serde_json::Value, arch: &str) -> (String, String) {
     let assets = release["assets"].as_array().expect("No assets in release");
 
     for asset in assets {
@@ -66,22 +69,12 @@ fn select_asset(release: &serde_json::Value, arch: &str, env: &str) -> (String, 
             .expect("Asset missing name")
             .to_lowercase();
 
+        // We target the pre-compiled binary: fish-x.x.x-linux-x86_64.tar.xz
         let matches_linux = name.contains("linux");
         let matches_arch = name.contains(arch);
+        let is_archive = name.ends_with(".tar.xz") || name.ends_with(".txz");
 
-        // If on Alpine, we MUST have 'musl' in the filename.
-        // If on standard Linux, we should avoid 'musl' builds.
-        let matches_env = if env == "musl" {
-            name.contains("musl")
-        } else {
-            !name.contains("musl")
-        };
-
-        if matches_linux
-            && matches_arch
-            && matches_env
-            && (name.ends_with(".tar.xz") || name.ends_with(".txz"))
-        {
+        if matches_linux && matches_arch && is_archive {
             let url = asset["browser_download_url"]
                 .as_str()
                 .expect("Missing download URL")
@@ -91,7 +84,7 @@ fn select_asset(release: &serde_json::Value, arch: &str, env: &str) -> (String, 
         }
     }
 
-    panic!("No matching fish asset found for {arch}-{env} on Linux");
+    panic!("No matching fish asset found for {arch} on Linux");
 }
 
 /// Download a file from GitHub (ureq 3.x)
@@ -118,6 +111,7 @@ fn extract_fish_from_xz(archive_path: &PathBuf, fish_bin: &PathBuf) {
         let mut entry = entry.expect("Failed to read tar entry");
         let path = entry.path().expect("Invalid tar entry path");
 
+        // The binary is at the root of the archive in newer releases
         if path.file_name().and_then(|s| s.to_str()) == Some("fish") {
             let mut out = fs::File::create(fish_bin).expect("Failed to create fish binary");
 

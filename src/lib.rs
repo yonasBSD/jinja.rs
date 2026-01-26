@@ -1,4 +1,4 @@
-/// Detect architecture and C-library (gnu vs musl)
+/// Detect architecture
 #[cfg(not(target_os = "freebsd"))]
 pub fn detect_target() -> (&'static str, &'static str) {
     let arch = match std::env::consts::ARCH {
@@ -7,7 +7,8 @@ pub fn detect_target() -> (&'static str, &'static str) {
         other => panic!("Unsupported architecture: {other}"),
     };
 
-    // Cargo tells us the target environment directly
+    // We keep the env detection for logging/metadata,
+    // but we no longer use it to restrict asset selection.
     let env = match std::env::var("CARGO_CFG_TARGET_ENV")
         .unwrap_or_default()
         .as_str()
