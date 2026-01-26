@@ -4,8 +4,11 @@ on:
   push:
     branches:
       - main
-      - 'releases/**' # Match this here so the downstream knows to trigger
+      - 'releases/**'
   pull_request:
+    branches:
+      - main
+      - 'releases/**'
 
 permissions:
   contents: read
