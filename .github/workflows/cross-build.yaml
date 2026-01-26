@@ -90,35 +90,41 @@ jobs:
         with:
           egress-policy: block
           allowed-endpoints: >
+            0.freebsd.pool.ntp.org:123
+            0.freebsd.pool.ntp.org:443
+            2.122.168.192.in-addr.arpa:443
+            2.freebsd.pool.ntp.org:123
+            2.freebsd.pool.ntp.org:443
+            _http._tcp.azure.archive.ubuntu.com:443
+            _https._tcp.esm.ubuntu.com:443
+            _https._tcp.motd.ubuntu.com:443
+            _https._tcp.packages.microsoft.com:443
+            _https._tcp.pkg.freebsd.org:443
             api.deps.dev:443
             api.github.com:443
             api.osv.dev:443
             api.scorecard.dev:443
-            fulcio.sigstore.dev:443
-            github.com:443
-            oss-fuzz-build-logs.storage.googleapis.com:443
-            rekor.sigstore.dev:443
-            tuf-repo-cdn.sigstore.dev:443
-            www.bestpractices.dev:443
-            objects.githubusercontent.com:443
-            github-releases.githubusercontent.com:443
-            release-assets.githubusercontent.com:443
-            raw.githubusercontent.com:443
-            static.rust-lang.org:443
-            static.crates.io:443
-            index.crates.io:443
             azure.archive.ubuntu.com:80
             changelogs.ubuntu.com:443
             esm.ubuntu.com:443
+            fulcio.sigstore.dev:443
+            github-releases.githubusercontent.com:443
+            github.com:443
+            index.crates.io:443
+            motd.ubuntu.com:443
+            objects.githubusercontent.com:443
+            oss-fuzz-build-logs.storage.googleapis.com:443
             packages.microsoft.com
-            0.freebsd.pool.ntp.org:443
-            2.freebsd.pool.ntp.org:443
+            packages.microsoft.com:443
             pkg.FreeBSD.org:443
             pkg.freebsd.org:443
-            _https._tcp.pkg.freebsd.org:443
-            2.freebsd.pool.ntp.org:123
-            0.freebsd.pool.ntp.org:123
-            2.122.168.192.in-addr.arpa:443
+            raw.githubusercontent.com:443
+            rekor.sigstore.dev:443
+            release-assets.githubusercontent.com:443
+            static.crates.io:443
+            static.rust-lang.org:443
+            tuf-repo-cdn.sigstore.dev:443
+            www.bestpractices.dev:443
 
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -148,30 +154,24 @@ jobs:
         with:
           egress-policy: block
           allowed-endpoints: >
-            api.deps.dev:443
+            _http._tcp.azure.archive.ubuntu.com:443
+            _https._tcp.esm.ubuntu.com:443
+            _https._tcp.motd.ubuntu.com:443
+            _https._tcp.packages.microsoft.com:443
             api.github.com:443
-            api.osv.dev:443
-            api.scorecard.dev:443
-            fulcio.sigstore.dev:443
-            github.com:443
-            oss-fuzz-build-logs.storage.googleapis.com:443
-            rekor.sigstore.dev:443
-            tuf-repo-cdn.sigstore.dev:443
-            www.bestpractices.dev:443
-            objects.githubusercontent.com:443
-            github-releases.githubusercontent.com:443
-            release-assets.githubusercontent.com:443
-            raw.githubusercontent.com:443
-            static.rust-lang.org:443
-            static.crates.io:443
-            index.crates.io:443
             azure.archive.ubuntu.com:80
+            cdn.openbsd.org:443
             changelogs.ubuntu.com:443
             esm.ubuntu.com:443
+            github.com:443
+            index.crates.io:443
+            motd.ubuntu.com:443
             packages.microsoft.com:443
-            cdn.openbsd.org
-            pool.ntp.org:443
-            time.cloudflare.com:443
+            pool.ntp.org:123
+            raw.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            static.crates.io:443
+            time.cloudflare.com:123
             www.google.com:443
 
       - name: Checkout sources
@@ -217,6 +217,9 @@ jobs:
             index.crates.io:443
             dl-cdn.alpinelinux.org:80
             gitlab.alpinelinux.org:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            raw.githubusercontent.com:443
 
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -257,6 +260,7 @@ jobs:
             tuf-repo-cdn.sigstore.dev:443
             www.bestpractices.dev:443
             objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
             raw.githubusercontent.com:443
             static.rust-lang.org:443
             static.crates.io:443
