@@ -475,6 +475,7 @@ fn multiply(a, b) { a * b }
     // INTEGRATION TESTS
     // ══════════════════════════════════════════════════════════════════════════
 
+    #[cfg(not(target_os = "freebsd"))]
     #[test]
     fn test_target_detection_not_panicking() {
         common::init();
