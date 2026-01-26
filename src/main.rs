@@ -5,7 +5,7 @@ use std::{
     fs,
     io::Write,
     os::unix::fs::PermissionsExt,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Arc, OnceLock},
 };
 
@@ -148,35 +148,49 @@ pub struct RootConfig {
 /// Extracts the embedded fish binary to a local user directory (~/.cache).
 /// This is wrapped in `OnceLock` to prevent redundant disk I/O.
 /// Using a local directory instead of /tmp avoids 'noexec' mount issues.
+fn ensure_executable(path: &Path) {
+    let mut perms = fs::metadata(path).expect("shell missing").permissions();
+    if perms.mode() & 0o111 == 0 {
+        perms.set_mode(0o755);
+        fs::set_permissions(path, perms).expect("chmod failed");
+    }
+}
+
+fn extract_fish_binary() -> PathBuf {
+    let home = std::env::var("HOME").expect("HOME env var not set");
+    let cache_dir = PathBuf::from(home).join(".cache/jinja-rs");
+    fs::create_dir_all(&cache_dir).expect("Failed to create cache directory");
+
+    let bin_path = cache_dir.join("fish_runtime");
+
+    // If it already exists, assume it's good to go.
+    // This prevents the "Text file busy" error when re-running.
+    if bin_path.exists() {
+        return bin_path;
+    }
+
+    match fs::File::create(&bin_path) {
+        Ok(mut file) => {
+            file.write_all(EMBEDDED_FISH)
+                .expect("Failed to write bytes");
+            let mut perms = file.metadata().expect("Metadata failed").permissions();
+            perms.set_mode(0o755);
+            file.set_permissions(perms).expect("Chmod failed");
+        },
+        // If the file is busy, it means another process/thread is already using it.
+        // That's fine—it means it exists and is functional.
+        Err(e) if e.kind() == std::io::ErrorKind::ExecutableFileBusy => {},
+        Err(e) => panic!("Failed to create runtime binary: {e}"),
+    }
+
+    bin_path
+}
+
 fn get_embedded_shell_path() -> &'static PathBuf {
     EXTRACTED_SHELL.get_or_init(|| {
-        let home = std::env::var("HOME").expect("HOME env var not set");
-        let cache_dir = PathBuf::from(home).join(".cache/jinja-rs");
-        fs::create_dir_all(&cache_dir).expect("Failed to create cache directory");
-
-        let bin_path = cache_dir.join("fish_runtime");
-
-        // If it already exists, assume it's good to go.
-        // This prevents the "Text file busy" error when re-running.
-        if bin_path.exists() {
-            return bin_path;
-        }
-
-        match fs::File::create(&bin_path) {
-            Ok(mut file) => {
-                file.write_all(EMBEDDED_FISH)
-                    .expect("Failed to write bytes");
-                let mut perms = file.metadata().expect("Metadata failed").permissions();
-                perms.set_mode(0o755);
-                file.set_permissions(perms).expect("Chmod failed");
-            },
-            // If the file is busy, it means another process/thread is already using it.
-            // That's fine—it means it exists and is functional.
-            Err(e) if e.kind() == std::io::ErrorKind::ExecutableFileBusy => {},
-            Err(e) => panic!("Failed to create runtime binary: {e}"),
-        }
-
-        bin_path
+        let path = extract_fish_binary();
+        ensure_executable(&path);
+        path
     })
 }
 

@@ -47,7 +47,9 @@ pub fn provision_fish(out_dir: &PathBuf, fish_bin: &PathBuf) {
         .output()
         .expect("uname -K failed");
 
-    let full_version = String::from_utf8_lossy(&abi_output.stdout).trim().to_string();
+    let full_version = String::from_utf8_lossy(&abi_output.stdout)
+        .trim()
+        .to_string();
     let major_version = if full_version.len() >= 2 {
         &full_version[..2]
     } else {
@@ -59,7 +61,9 @@ pub fn provision_fish(out_dir: &PathBuf, fish_bin: &PathBuf) {
         .output()
         .expect("uname -m failed");
 
-    let arch = String::from_utf8_lossy(&arch_output.stdout).trim().to_string();
+    let arch = String::from_utf8_lossy(&arch_output.stdout)
+        .trim()
+        .to_string();
 
     let abi = format!("FreeBSD:{major_version}:{arch}");
     let base_url = format!("https://pkg.freebsd.org/{abi}/latest");
