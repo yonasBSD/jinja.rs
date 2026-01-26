@@ -2,8 +2,28 @@
 
 > A powerful, configuration-driven template rendering engine combining MiniJinja templates with Rhai scripting and shell command execution.
 
-[![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org/)
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
+![Licenses](https://github.com/yonasBSD/jinja.rs/actions/workflows/licenses.yaml/badge.svg)
+![Linting](https://github.com/yonasBSD/jinja.rs/actions/workflows/lint.yaml/badge.svg)
+![Testing](https://github.com/yonasBSD/jinja.rs/actions/workflows/test-with-coverage.yaml/badge.svg)
+![Packaging](https://github.com/yonasBSD/jinja.rs/actions/workflows/release-packaging.yaml/badge.svg)
+![Cross-Build](https://github.com/yonasBSD/jinja.rs/actions/workflows/cross-build.yaml/badge.svg)
+
+![Security Audit](https://github.com/yonasBSD/jinja.rs/actions/workflows/security.yaml/badge.svg)
+![Scorecard Audit](https://github.com/yonasBSD/jinja.rs/actions/workflows/scorecard.yaml/badge.svg)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=yonasBSD_jinja.rs&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=yonasBSD_jinja.rs)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=yonasBSD_jinja.rs&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=yonasBSD_jinja.rs)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=yonasBSD_jinja.rs&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=yonasBSD_jinja.rs)
+<!--[![codecov](https://codecov.io/gh/yonasBSD/jinja.rs/branch/main/graph/badge.svg?token=SLIHSUWHT2)](https://codecov.io/gh/yonasBSD/jinja.rs)-->
+<!--[![ghcr.io](https://img.shields.io/badge/ghcr.io-download-blue)](https://github.com/yonasBSD/jinja.rs/pkgs/container/jinja.rs)-->
+<!--[![Docker Pulls](https://img.shields.io/docker/pulls/jinja.rs/example.svg)](https://hub.docker.com/r/jinja.rs/example)-->
+<!--[![Quay.io](https://img.shields.io/badge/Quay.io-download-blue)](https://quay.io/repository/jinja.rs/example)-->
+
+![GitHub last commit](https://img.shields.io/github/last-commit/yonasBSD/jinja.rs)
+[![Dependency Status](https://deps.rs/repo/github/yonasBSD/jinja.rs/status.svg)](https://deps.rs/repo/github/yonasBSD/jinja.rs)
+![Rust](https://img.shields.io/badge/Built%20With-Rust-orange?logo=rust)
+[![GitHub Release](https://img.shields.io/github/release/yonasBSD/jinja.rs.svg)](https://github.com/yonasBSD/jinja.rs/releases/latest)
+[![License](https://img.shields.io/github/license/yonasBSD/jinja.rs.svg)](https://github.com/yonasBSD/jinja.rs/blob/main/LICENSE.txt)
+<!--[![Matrix Chat](https://img.shields.io/matrix/vaultwarden:matrix.org.svg?logo=matrix)](https://matrix.to/#/#vaultwarden:matrix.org)-->
 
 ## ✨ Features
 
