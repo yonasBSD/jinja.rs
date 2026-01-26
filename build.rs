@@ -13,6 +13,11 @@ use build_freebsd::provision_fish;
 use build_linux::provision_fish;
 
 /// Shared helper for both Linux/macOS and FreeBSD
+///
+/// # Panics
+///
+/// This function will panic if setting the file permissions fails (for example,
+/// if `fs::set_permissions` returns an error).
 pub fn set_executable(path: &PathBuf) {
     #[cfg(unix)]
     {
