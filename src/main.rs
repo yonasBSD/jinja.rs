@@ -73,7 +73,7 @@ pub struct Cli {
 // ──────────────────────────────────────────────────────────────────────────────
 //
 // These structs represent the YAML schema. They intentionally mirror the
-// structure of j2.yaml so that serde_yaml can deserialize directly into them.
+// structure of j2.yaml so that serde_yml can deserialize directly into them.
 //
 // ArgumentSpec: describes a single argument for a Rhai function.
 // VarSpec: describes a variable that can be produced via:
@@ -374,7 +374,7 @@ fn main() -> anyhow::Result<()> {
     // this as a CLI argument or auto‑discovering config files.
     // ──────────────────────────────────────────────────────────────────────────
     let yaml = fs::read_to_string("j2.yaml")?;
-    let root: RootConfig = serde_yaml::from_str(&yaml)?;
+    let root: RootConfig = serde_yml::from_str(&yaml)?;
     let specs = &root.vars;
 
     // ──────────────────────────────────────────────────────────────────────────
