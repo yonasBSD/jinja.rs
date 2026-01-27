@@ -51,7 +51,7 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
 
       - name: Polish changelog
-        shell: bash
+        shell: sh
         run: sed -i '1,2d' CHANGES.md
 
       - name: Upload the changelog

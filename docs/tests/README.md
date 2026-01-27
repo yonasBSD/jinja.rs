@@ -75,7 +75,7 @@ Tests for unusual inputs and boundary conditions:
 
 ## Running the Tests
 
-```bash
+```sh
 # Run all tests
 cargo test
 

@@ -30,7 +30,7 @@
 * 🎨 **MiniJinja Templates** - Full-featured Jinja2-compatible templating for Rust.
 * 🦀 **Rhai Scripting** - Embedded scripting engine for complex, dynamic variable generation.
 * 🐚 **Embedded Fish Shell** - Includes a portable **fish shell runtime** embedded in the binary.
-    * **Zero Dependencies:** No need to have fish, bash, or zsh installed on the host system.
+    * **Zero Dependencies:** No need to have fish, sh, or zsh installed on the host system.
     * **Consistency:** Ensures shell commands (`cmd`/`cmds`) run identically across Linux, FreeBSD, and OpenBSD.
     * **Auto-Provisioning:** Automatically extracts to `~/.cache/jinja-rs/` and manages permissions on first run.
 * ⚙️ **Declarative Configuration** - Define your entire data pipeline in a clean `j2.yaml` file.
@@ -42,13 +42,13 @@
 
 ### Installation
 
-```bash
+```sh
 cargo install jinja-rs
 ```
 
 Or build from source:
 
-```bash
+```sh
 git clone https://github.com/yonasBSD/jinja.rs
 cd jinja.rs
 cargo build --release
@@ -59,7 +59,7 @@ cargo build --release
 1. Create a configuration file `j2.yaml`:
 
 ```yaml
-default_shell: bash
+default_shell: sh
 
 vars:
   # Script-based variable
@@ -87,7 +87,7 @@ Shouting: {{ username | upper }}
 
 3. Render the template:
 
-```bash
+```sh
 jinja-rs --template template.j2
 ```
 
@@ -107,7 +107,7 @@ The configuration file drives all behavior. It supports:
 #### Global Settings
 
 ```yaml
-default_shell: bash  # Default shell for command execution (optional)
+default_shell: sh  # Default shell for command execution (optional)
 ```
 
 #### Variable Types
@@ -208,10 +208,10 @@ vars:
 3. `fish` (hardcoded fallback)
 
 ```yaml
-default_shell: bash
+default_shell: sh
 
 vars:
-  - name: uses_bash
+  - name: uses_sh
     cmd: "echo $SHELL"
   
   - name: uses_sh
@@ -341,12 +341,12 @@ Comprehensive test suite with 60+ tests covering:
 - Edge cases and error handling
 
 Run tests:
-```bash
+```sh
 cargo test
 ```
 
 Run tests with output:
-```bash
+```sh
 cargo test -- --nocapture
 ```
 
@@ -369,7 +369,7 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 ### Development Setup
 
-```bash
+```sh
 # Clone the repository
 git clone https://github.com/yonasBSD/jinja.rs
 cd jinja.rs
