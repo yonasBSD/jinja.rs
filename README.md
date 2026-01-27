@@ -62,11 +62,11 @@ vars:
   # Script-based variable
   - name: timestamp
     script: "1234567890"
-  
+
   # Shell command variable
   - name: username
     cmd: "whoami"
-  
+
   # Custom filter function
   - function: upper
     arguments:
@@ -117,7 +117,7 @@ Execute Rhai scripts to generate values:
 vars:
   - name: calculation
     script: "2 + 2 * 10"
-  
+
   - name: greeting
     script: "\"Hello, \" + \"World!\""
 ```
@@ -130,7 +130,7 @@ Execute a shell command and capture output:
 vars:
   - name: hostname
     cmd: "hostname"
-  
+
   - name: current_date
     cmd: "date +%Y-%m-%d"
     shell: sh  # Override default shell
@@ -162,7 +162,7 @@ vars:
       let chars = text.split("");
       chars.reverse();
       chars.join("")
-  
+
   - function: multiply
     arguments:
       - name: value
@@ -210,7 +210,7 @@ default_shell: sh
 vars:
   - name: uses_sh
     cmd: "echo $SHELL"
-  
+
   - name: uses_sh
     cmd: "echo $SHELL"
     shell: sh  # Overrides default
@@ -247,7 +247,7 @@ Generate Nginx configs, systemd units, or any configuration files:
 vars:
   - name: server_name
     cmd: "hostname -f"
-  
+
   - name: worker_processes
     script: "4"
 ```
@@ -268,10 +268,10 @@ Create documentation with live system information:
 vars:
   - name: version
     cmd: "git describe --tags"
-  
+
   - name: build_date
     cmd: "date -u +%Y-%m-%d"
-  
+
   - name: contributors
     cmds:
       - "git log --format='%an' | sort -u | head -5"
@@ -285,7 +285,7 @@ Generate deployment manifests with environment-specific values:
 vars:
   - name: environment
     cmd: "echo $DEPLOY_ENV"
-  
+
   - name: replicas
     script: |
       if environment == "prod" { 5 } else { 2 }
@@ -299,17 +299,17 @@ graph TD
     B -->|script| C[Rhai Engine]
     B -->|cmd/cmds| D[Shell Executor]
     B -->|function| E[Rhai Functions]
-    
+
     C --> F[Variables]
     D --> F
     E --> G[Custom Filters]
-    
+
     H[Template .j2] --> I[MiniJinja Engine]
     F --> I
     G --> I
-    
+
     I --> J[Rendered Output]
-    
+
     style A fill:#e1f5ff,stroke:#0288d1,stroke-width:2px
     style H fill:#e1f5ff,stroke:#0288d1,stroke-width:2px
     style I fill:#fff9c4,stroke:#f57f17,stroke-width:2px
@@ -325,6 +325,75 @@ graph TD
 2. **Separation of Concerns** - Variables, filters, and templates are independent
 3. **Composability** - Mix Rhai scripts, shell commands, and template logic freely
 4. **Fail-Safe** - Errors are captured and reported, not silently ignored
+
+## 🔐 Supply‑Chain Security & Reproducible Releases
+
+The jinja.rs release pipeline is built with a modern, defense‑in‑depth approach to software supply‑chain security. Every published artifact is verifiable, traceable, and accompanied by rich metadata to ensure integrity and trust.
+
+### 🧱 Reproducible Builds
+
+All release binaries are built using deterministic settings:
+
+- `SOURCE_DATE_EPOCH` pinned to the latest commit
+- incremental compilation disabled
+- deterministic metadata embedded
+
+This ensures that independent rebuilds produce identical output, a foundational requirement for trustworthy software.
+
+### 📦 Per‑Artifact SBOMs
+
+Each package (`.deb`, `.rpm`, `.apk`, `.ipk`, `.zst`) includes its own Software Bill of Materials in SPDX format.
+SBOMs are generated using Syft and published alongside the release as:
+
+`sbom-<artifact>.spdx.json`
+
+This gives downstream users and security scanners full visibility into dependencies and build inputs.
+
+### 🔐 Sigstore Keyless Signatures
+
+All release artifacts are signed using Sigstore Cosign with GitHub’s OIDC identity.
+This provides:
+
+- zero private key management
+- signatures tied to the GitHub workflow identity
+- transparent, verifiable authenticity
+
+Each artifact has a corresponding signature file:
+
+`<artifact>.sig`
+
+### 🧾 Attestations (SBOMs, Signatures, Provenance)
+
+The release pipeline generates attestations for:
+
+- the built packages
+- the SBOMs
+- the signature files
+
+These attestations provide cryptographically verifiable metadata about how each artifact was produced.
+
+### 🛡️ SLSA Level 3 Provenance
+
+Every release includes SLSA Build Level 3 provenance, generated automatically by GitHub’s secure builders.
+This provenance describes:
+
+- the exact commit used
+- the build environment
+- the build steps
+- the identity of the workflow
+- the cryptographic integrity of the artifacts
+
+This is the highest level of SLSA currently achievable on GitHub Actions.
+
+### ⚡ BLAKE3 Checksums
+
+All artifacts include a fast, modern integrity checksum file:
+
+`checksums-blake3.txt`
+
+BLAKE3 is significantly faster than SHA‑256 while maintaining strong cryptographic properties.
+
+See [INSTALL.md](INSTALL.md) to see how to verify downloaded binaries.
 
 ## 🧪 Testing
 

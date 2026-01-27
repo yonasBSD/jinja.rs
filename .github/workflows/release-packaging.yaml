@@ -7,14 +7,13 @@ on:
 
 permissions:
   contents: write
-
-env:
-  PROJECT_NAME_UNDERSCORE: test2
+  id-token: write   # required for cosign + SLSA provenance
 
 jobs:
   release:
     name: Linux
     runs-on: ubuntu-latest
+
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
@@ -46,28 +45,78 @@ jobs:
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Release Build
+      - name: Derive project names from Cargo
+        run: |
+          CRATE_NAME=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].name')
+          echo "PROJECT_BIN=$CRATE_NAME" >> $GITHUB_ENV
+          echo "PROJECT_NAME_UNDERSCORE=$(echo "$CRATE_NAME" | tr '-' '_')" >> $GITHUB_ENV
+
+      - name: Release Build (Reproducible)
         uses: yonasBSD/toolkit@e3156a095eb4a759778ad8ef10dfd58dd00993e6 # v0.1.0
         with:
           run: |
+            export SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)
+            export CARGO_INCREMENTAL=0
+            export CARGO_PROFILE_RELEASE_DEBUG=false
             cargo auditable build --release
 
-      - name: Set env
-        run: echo "NFPM_VERSION=$(curl -sL https://api.github.com/repos/goreleaser/nfpm/releases/latest | jq -r ".tag_name" | cut -d'v' -f2)" >> $GITHUB_ENV
+      - name: Set NFPM version
+        run: echo "NFPM_VERSION=$(curl -sL https://api.github.com/repos/goreleaser/nfpm/releases/latest | jq -r '.tag_name' | cut -d'v' -f2)" >> $GITHUB_ENV
 
-      - name: Create Packages
+      - name: Install NFPM
+        run: |
+          wget https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_amd64.deb
+          sudo dpkg -i nfpm_${NFPM_VERSION}_amd64.deb
+          rm nfpm_${NFPM_VERSION}_amd64.deb
+
+      - name: Update NFPM version field
         env:
           VERSION: ${{ github.ref_name }}
         run: |
-           wget https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_amd64.deb
-           sudo dpkg -i nfpm_${NFPM_VERSION}_amd64.deb
-           rm nfpm_${NFPM_VERSION}_amd64.deb
-           sed -i -E "s/^version:.+$/version: $VERSION/g" nfpm.yaml
-           mkdir scripts
-           touch foo bar scripts/postremove.sh scripts/preremove.sh scripts/preinstall.sh scripts/postinstall.sh changelog.yaml foobar.conf
-           for pkg in deb apk archlinux rpm ipk; do
-              nfpm package -p $pkg
-           done
+          sed -i -E "s/^version:.+$/version: $VERSION/g" packaging/nfpm/nfpm.yaml
+
+      - name: Create Packages
+        run: |
+          for pkg in deb apk archlinux rpm ipk; do
+            nfpm package \
+              --config packaging/nfpm/nfpm.yaml \
+              --packager $pkg
+          done
+
+      - name: Install Syft + BLAKE3 tools + Cosign
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          sudo apt-get update
+          sudo apt-get install -y b3sum
+          curl -sSfL https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 \
+            -o /usr/local/bin/cosign
+          chmod +x /usr/local/bin/cosign
+
+      - name: Generate per-artifact SBOMs
+        run: |
+          for f in *.deb *.apk *.ipk *.rpm *.zst; do
+            syft "$f" -o spdx-json="sbom-$f.spdx.json"
+          done
+
+      - name: Generate BLAKE3 checksums
+        run: |
+          b3sum *.deb *.apk *.ipk *.rpm *.zst > checksums-blake3.txt
+
+      - name: Sign packages with Cosign (keyless)
+        run: |
+          for f in *.deb *.apk *.ipk *.rpm *.zst; do
+            cosign sign-blob --yes --output-signature "$f.sig" "$f"
+          done
+
+      - name: Attest SBOMs
+        uses: actions/attest-artifact@v1
+        with:
+          subject-path: sbom-*.spdx.json
+
+      - name: Attest Signatures
+        uses: actions/attest-artifact@v1
+        with:
+          subject-path: "*.sig"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -80,6 +129,9 @@ jobs:
             *.ipk
             *.rpm
             *.zst
+            *.sig
+            sbom-*.spdx.json
+            checksums-blake3.txt
 
       - name: Create Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
@@ -90,51 +142,18 @@ jobs:
             *.ipk
             *.rpm
             *.zst
+            *.sig
+            sbom-*.spdx.json
+            checksums-blake3.txt
 
-    #- name: Output artifact ID
-    #  run:  echo 'Artifact ID is ${{ steps.artifact-upload-step.outputs.artifact-id }}'
-
-    #  - name: Create Release
-    #    env:
-    #      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    #      tag: ${{ github.ref_name }}
-    #       gh release create "$tag" \
-    #         --repo="$GITHUB_REPOSITORY" \
-    #         --title="${tag#v}" \
-    #         --generate-notes
-
-  macos:
-    name: Mac
-    runs-on: macos-latest
-    permissions:
-      contents: write
-      packages: write
-    needs: [release]
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: yonasBSD/toolkit@e3156a095eb4a759778ad8ef10dfd58dd00993e6 # v0.1.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate SLSA Level 3 Provenance
+        uses: actions/attest-build-provenance@92c65d2898f1f53cfdc910b962cecff86e7f8fcc # v1
         with:
-          run: |
-            cargo build --release
-            mv target/release/${{ env.PROJECT_NAME_UNDERSCORE }} ${{ env.PROJECT_NAME_UNDERSCORE }}-macos-64bit.dmg
-            gh release upload "${{ github.ref_name }}" ${{ env.PROJECT_NAME_UNDERSCORE }}-macos-64bit.dmg --clobber
-
-  windows:
-    name: Windows
-    runs-on: windows-latest
-    permissions:
-      contents: write
-      packages: write
-    needs: [release]
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: yonasBSD/toolkit@e3156a095eb4a759778ad8ef10dfd58dd00993e6 # v0.1.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          run: |
-            cargo build --release
-            mv target/release/${{ env.PROJECT_NAME_UNDERSCORE }}.exe ${{ env.PROJECT_NAME_UNDERSCORE }}-windows-64bit.exe
-            gh release upload "${{ github.ref_name }}" ${{ env.PROJECT_NAME_UNDERSCORE }}-windows-64bit.exe --clobber
+          subject-path: |
+            *.deb
+            *.apk
+            *.ipk
+            *.rpm
+            *.zst
+            sbom-*.spdx.json
+            *.sig
