@@ -27,11 +27,11 @@ mod tests {
     fn test_deserialize_config_with_default_shell() {
         common::init();
         let yaml = r#"
-default_shell: bash
+default_shell: sh
 vars: []
 "#;
         let config: RootConfig = serde_yml::from_str(yaml).unwrap();
-        assert_eq!(config.default_shell, Some("bash".to_string()));
+        assert_eq!(config.default_shell, Some("sh".to_string()));
         assert!(config.vars.is_empty());
     }
 
@@ -137,17 +137,17 @@ vars:
 vars:
   - name: test
     cmd: "echo hi"
-    shell: bash
+    shell: sh
 "#;
         let config: RootConfig = serde_yml::from_str(yaml).unwrap();
-        assert_eq!(config.vars[0].shell, Some("bash".to_string()));
+        assert_eq!(config.vars[0].shell, Some("sh".to_string()));
     }
 
     #[test]
     fn test_deserialize_complex_config() {
         common::init();
         let yaml = r#"
-default_shell: bash
+default_shell: sh
 vars:
   - name: greeting
     script: "Hello, World!"
@@ -164,7 +164,7 @@ vars:
     shell: sh
 "#;
         let config: RootConfig = serde_yml::from_str(yaml).unwrap();
-        assert_eq!(config.default_shell, Some("bash".to_string()));
+        assert_eq!(config.default_shell, Some("sh".to_string()));
         assert_eq!(config.vars.len(), 4);
     }
 
@@ -239,7 +239,7 @@ vars:
     fn test_eval_cmd_shell_override_precedence() {
         common::init();
         // per-variable shell should override global default
-        let result = eval_cmd("echo override", Some("sh"), Some("bash"), None, None);
+        let result = eval_cmd("echo override", Some("sh"), Some("sh"), None, None);
         assert_eq!(result, "override");
     }
 
@@ -299,13 +299,7 @@ vars:
     #[test]
     fn test_eval_cmd_multiline_output() {
         common::init();
-        let result = eval_cmd(
-            "printf 'line1\\nline2\\nline3'",
-            Some("sh"),
-            None,
-            None,
-            None,
-        );
+        let result = eval_cmd("printf 'line1\nline2\nline3'", Some("sh"), None, None, None);
         assert_eq!(result, "line1\nline2\nline3");
     }
 
@@ -773,7 +767,7 @@ vars:
         common::init();
         let mut temp_file = NamedTempFile::new().unwrap();
         let yaml_content = r#"
-default_shell: bash
+default_shell: sh
 vars:
   - name: test
     script: "42"
@@ -783,7 +777,7 @@ vars:
         let content = fs::read_to_string(temp_file.path()).unwrap();
         let config: RootConfig = serde_yml::from_str(&content).unwrap();
 
-        assert_eq!(config.default_shell, Some("bash".to_string()));
+        assert_eq!(config.default_shell, Some("sh".to_string()));
         assert_eq!(config.vars.len(), 1);
     }
 
@@ -884,7 +878,7 @@ vars:
 vars:
   - name: emoji
     script: "\"🚀 Hello 世界\""
-    "#;
+"#;
         let config: RootConfig = serde_yml::from_str(yaml).unwrap();
         let engine = Engine::new();
         let mut scope = Scope::new();
@@ -918,7 +912,7 @@ vars:
         common::init();
         // Test that per-variable shell > global default > hardcoded default
         let yaml = r#"
-default_shell: bash
+default_shell: sh
 vars:
   - name: test1
     cmd: "echo test"
@@ -941,7 +935,7 @@ vars:
         );
         assert_eq!(result1, "test");
 
-        // var without shell override should use default_shell "bash"
+        // var without shell override should use default_shell "sh"
         let result2 = eval_cmd(
             &config.vars[1].cmd.as_ref().unwrap(),
             config.vars[1].shell.as_deref(),

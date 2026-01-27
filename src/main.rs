@@ -115,7 +115,7 @@ pub struct VarSpec {
     #[serde(default)]
     cmds: Option<Vec<String>>,
 
-    // Per‑variable shell override (e.g., "bash", "fish").
+    // Per‑variable shell override (e.g., "sh", "fish").
     #[serde(default)]
     shell: Option<String>,
 
@@ -220,7 +220,7 @@ pub fn eval_cmd(
         // Use the lazily extracted embedded binary
         std::process::Command::new(get_embedded_shell_path())
     } else {
-        // Use the system binary for other shells (e.g., bash, zsh)
+        // Use the system binary for other shells (e.g., sh, zsh)
         std::process::Command::new(shell_choice)
     };
 
