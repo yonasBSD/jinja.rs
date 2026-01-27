@@ -1,23 +1,40 @@
 use std::{env, fs, path::PathBuf};
 
+//
+// --- OS‑specific modules -----------------------------------------------------
+//
+
 #[cfg(target_os = "freebsd")]
 mod build_freebsd;
 
-#[cfg(not(target_os = "freebsd"))]
+#[cfg(target_os = "macos")]
+mod build_macos;
+
+#[cfg(target_os = "linux")]
 mod build_linux;
 
-// Re-export the correct provisioner
+#[cfg(not(any(target_os = "freebsd", target_os = "macos", target_os = "linux")))]
+compile_error!("Unsupported target OS: this build script only supports FreeBSD, macOS, and Linux.");
+
+//
+// --- Re‑export the correct provisioner --------------------------------------
+//
+
 #[cfg(target_os = "freebsd")]
 use build_freebsd::provision_fish;
-#[cfg(not(target_os = "freebsd"))]
+#[cfg(target_os = "linux")]
 use build_linux::provision_fish;
+#[cfg(target_os = "macos")]
+use build_macos::provision_fish;
 
-/// Shared helper for both Linux/macOS and FreeBSD
+//
+// --- Shared helpers ----------------------------------------------------------
+//
+
+/// Shared helper for all Unix platforms.
 ///
 /// # Panics
-///
-/// This function will panic if setting the file permissions fails (for example,
-/// if `fs::set_permissions` returns an error).
+/// Panics if setting file permissions fails.
 pub fn set_executable(path: &PathBuf) {
     #[cfg(unix)]
     {
@@ -27,6 +44,10 @@ pub fn set_executable(path: &PathBuf) {
     }
 }
 
+//
+// --- Main --------------------------------------------------------------------
+//
+
 fn main() {
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let fish_bin = out_dir.join("fish");
@@ -34,8 +55,12 @@ fn main() {
     // Inform downstream crates where the embedded shell came from
     let origin = if cfg!(target_os = "freebsd") {
         "FreeBSD Packages"
+    } else if cfg!(target_os = "macos") {
+        "GitHub Releases (macOS)"
+    } else if cfg!(target_os = "linux") {
+        "GitHub Releases (Linux)"
     } else {
-        "GitHub Releases"
+        unreachable!("compile_error! above should prevent this branch");
     };
 
     println!("cargo:rustc-env=EMBEDDED_SHELL_ORIGIN={origin}");
