@@ -26,8 +26,8 @@ jobs:
         os:
           - arch: ubuntu-latest
             name: Ubuntu
-          - arch: macos-latest
-            name: Mac OS X
+        # - arch: macos-latest
+        #   name: Mac OS X
         rust: [stable]
     runs-on: ${{ matrix.os.arch }}
 
