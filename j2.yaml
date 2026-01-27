@@ -1,4 +1,4 @@
-default_shell: fish   # or bash, zsh, etc.
+default_shell: fish   # or sh, zsh, etc.
 
 vars:
   - name: commands_example
@@ -33,8 +33,8 @@ vars:
     cmd: echo hello world | string replace 'world' 'world!'
 
   - name: shell_example
-    desc: Use another shell via `shell` optional variable (bash in this example)
-    shell: bash
+    desc: Use another shell via `shell` optional variable (sh in this example)
+    shell: sh
     cmd: if [[ "true" = "true" ]] ; then echo hello world from $(ps -p $$ -o comm=) ; fi
 
   - name: script_example
