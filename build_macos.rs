@@ -1,7 +1,7 @@
 use std::{
     env, fs,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::Command,
 };
 
 use crate::set_executable;
@@ -48,23 +48,35 @@ fn fetch_latest_tag() -> Result<String, String> {
         .args([
             "-sL",
             "-H",
-            "User-Agent: cargo-build-script",
+            "User-Agent: jinja-rs-build-script",
             GITHUB_API_LATEST,
         ])
         .output()
         .map_err(|e| format!("curl failed: {e}"))?;
 
     if !output.status.success() {
-        return Err("GitHub API request failed".into());
+        return Err(format!(
+            "GitHub API request failed with status {}",
+            output.status
+        ));
     }
 
-    let json = String::from_utf8_lossy(&output.stdout);
-    let tag = json
-        .lines()
-        .find(|line| line.contains("\"tag_name\""))
-        .and_then(|line| line.split(':').nth(1))
-        .map(|s| s.trim().trim_matches('"').trim_matches(','))
-        .ok_or("Failed to parse tag_name from GitHub API")?;
+    let body = String::from_utf8_lossy(&output.stdout);
+
+    // Detect GitHub API errors
+    if body.contains("\"message\"") && !body.contains("\"tag_name\"") {
+        return Err(format!("GitHub API returned an error: {body}"));
+    }
+
+    // Extract "tag_name": "vX.Y.Z"
+    let tag = body
+        .split("\"tag_name\"")
+        .nth(1)
+        .and_then(|s| s.split(':').nth(1))
+        .map(|s| s.trim())
+        .map(|s| s.trim_matches(|c| c == '"' || c == ',' || c.is_whitespace()))
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| format!("Could not find tag_name in GitHub API response: {body}"))?;
 
     Ok(tag.to_string())
 }
