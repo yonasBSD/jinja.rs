@@ -96,7 +96,7 @@ jobs:
           copyback: false
           envs: GITHUB_TOKEN
           prepare: |
-            pkg update -f ; pkg install -y curl rust-nightly
+            pkg update -f ; pkg install -y bash curl rust-nightly
           run: |
             export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
             cd ${{ env.FEATURE_PATH }} && cargo test --all-features
