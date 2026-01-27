@@ -10,9 +10,6 @@
 
 ![Security Audit](https://github.com/yonasBSD/jinja.rs/actions/workflows/security.yaml/badge.svg)
 ![Scorecard Audit](https://github.com/yonasBSD/jinja.rs/actions/workflows/scorecard.yaml/badge.svg)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=yonasBSD_jinja.rs&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=yonasBSD_jinja.rs)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=yonasBSD_jinja.rs&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=yonasBSD_jinja.rs)
-[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=yonasBSD_jinja.rs&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=yonasBSD_jinja.rs)
 <!--[![codecov](https://codecov.io/gh/yonasBSD/jinja.rs/branch/main/graph/badge.svg?token=SLIHSUWHT2)](https://codecov.io/gh/yonasBSD/jinja.rs)-->
 <!--[![ghcr.io](https://img.shields.io/badge/ghcr.io-download-blue)](https://github.com/yonasBSD/jinja.rs/pkgs/container/jinja.rs)-->
 <!--[![Docker Pulls](https://img.shields.io/docker/pulls/jinja.rs/example.svg)](https://hub.docker.com/r/jinja.rs/example)-->
