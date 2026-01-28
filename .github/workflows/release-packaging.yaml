@@ -8,10 +8,11 @@ on:
 permissions:
   contents: write
   id-token: write   # required for cosign + SLSA provenance
+  attestations: write
 
 jobs:
   release:
-    name: Linux
+    name: Linux Release
     runs-on: ubuntu-latest
 
     steps:
@@ -45,84 +46,77 @@ jobs:
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Derive project names from Cargo
+      # Setup Environment & Tools
+      - name: Install Toolchain & Utilities
+        run: |
+          sudo apt-get update && sudo apt-get install -y b3sum jq
+          curl -sfL https://gobinaries.com/goreleaser/nfpm | sh
+
+      - name: Install Sigstore Tools
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@deef08a0db64bfad603422135db61477b16cef56 # v0.22.1
+
+      - name: Set Project Metadata
         run: |
           CRATE_NAME=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].name')
           echo "PROJECT_BIN=$CRATE_NAME" >> $GITHUB_ENV
-          echo "PROJECT_NAME_UNDERSCORE=$(echo "$CRATE_NAME" | tr '-' '_')" >> $GITHUB_ENV
+          echo "PROJECT_NAME_UNDERSCORE=${CRATE_NAME//-/_}" >> $GITHUB_ENV
 
-      - name: Release Build (Reproducible)
+      # Build & Package
+      - name: Build Reproducible Binary
         uses: yonasBSD/toolkit@e3156a095eb4a759778ad8ef10dfd58dd00993e6 # v0.1.0
         with:
           run: |
             export SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)
             export CARGO_INCREMENTAL=0
-            export CARGO_PROFILE_RELEASE_DEBUG=false
             cargo auditable build --release
 
-      - name: Set NFPM version
-        run: echo "NFPM_VERSION=$(curl -sL https://api.github.com/repos/goreleaser/nfpm/releases/latest | jq -r '.tag_name' | cut -d'v' -f2)" >> $GITHUB_ENV
-
-      - name: Install NFPM
-        run: |
-          wget https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_amd64.deb
-          sudo dpkg -i nfpm_${NFPM_VERSION}_amd64.deb
-          rm nfpm_${NFPM_VERSION}_amd64.deb
-
-      - name: Update NFPM version field
+      - name: Generate Packages (NFPM)
         env:
           VERSION: ${{ github.ref_name }}
         run: |
-          sed -i -E "s/^version:.+$/version: $VERSION/g" packaging/nfpm/nfpm.yaml
-
-      - name: Create Packages
-        run: |
+          # Use shell expansion to strip 'v' prefix if present
+          CLEAN_VER=${VERSION#v}
+          sed -i -E "s/^version:.+$/version: $CLEAN_VER/g" packaging/nfpm/nfpm.yaml
           for pkg in deb apk archlinux rpm ipk; do
-            nfpm package \
-              --config packaging/nfpm/nfpm.yaml \
-              --packager $pkg
+            nfpm package --config packaging/nfpm/nfpm.yaml --packager $pkg
           done
 
-      - name: Install Syft + BLAKE3 tools + Cosign
+      # Security, Checksums, and Signatures
+      - name: Generate SBOMs, Checksums, and Signatures
         run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-          sudo apt-get update
-          sudo apt-get install -y b3sum
-          curl -sSfL https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 \
-            -o /usr/local/bin/cosign
-          chmod +x /usr/local/bin/cosign
-
-      - name: Generate per-artifact SBOMs
-        run: |
-          for f in *.deb *.apk *.ipk *.rpm *.zst; do
-            syft "$f" -o spdx-json="sbom-$f.spdx.json"
-          done
-
-      - name: Generate BLAKE3 checksums
-        run: |
+          # Generate checksums for all artifacts
           b3sum *.deb *.apk *.ipk *.rpm *.zst > checksums-blake3.txt
 
-      - name: Sign packages with Cosign (keyless)
-        run: |
+          # Generate SBOMs and Signatures in one loop to save time
           for f in *.deb *.apk *.ipk *.rpm *.zst; do
+            syft "$f" -o spdx-json="sbom-$f.spdx.json"
             cosign sign-blob --yes --output-signature "$f.sig" "$f"
           done
 
+      # Attestations
       - name: Attest SBOMs
-        uses: actions/attest-artifact@v1
+        uses: actions/attest-sbom@7d9b9d6f3a2efd49c548db5f7b061f147d16bed8 # main
         with:
-          subject-path: sbom-*.spdx.json
+          sbom-path: 'sbom-*.spdx.json'
 
-      - name: Attest Signatures
-        uses: actions/attest-artifact@v1
+      - name: Generate SLSA Level 3 Provenance
+        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
         with:
-          subject-path: "*.sig"
+          subject-path: |
+            *.deb
+            *.apk
+            *.ipk
+            *.rpm
+            *.zst
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-        id: artifact-upload-step
+      # Publication
+      - name: Upload Artifacts to Job
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # main
         with:
-          name: ${{ env.PROJECT_NAME_UNDERSCORE }}
+          name: ${{ env.PROJECT_NAME_UNDERSCORE }}-dist
           path: |
             *.deb
             *.apk
@@ -133,7 +127,7 @@ jobs:
             sbom-*.spdx.json
             checksums-blake3.txt
 
-      - name: Create Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           files: |
@@ -145,15 +139,3 @@ jobs:
             *.sig
             sbom-*.spdx.json
             checksums-blake3.txt
-
-      - name: Generate SLSA Level 3 Provenance
-        uses: actions/attest-build-provenance@92c65d2898f1f53cfdc910b962cecff86e7f8fcc # v1
-        with:
-          subject-path: |
-            *.deb
-            *.apk
-            *.ipk
-            *.rpm
-            *.zst
-            sbom-*.spdx.json
-            *.sig
