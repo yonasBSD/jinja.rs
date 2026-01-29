@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
+        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
         with:
           egress-policy: block
           allowed-endpoints: >
@@ -25,24 +25,30 @@ jobs:
             api.github.com:443
             api.osv.dev:443
             api.scorecard.dev:443
-            fulcio.sigstore.dev:443
-            github.com:443
-            uploads.github.com:443
-            oss-fuzz-build-logs.storage.googleapis.com:443
-            rekor.sigstore.dev:443
-            tuf-repo-cdn.sigstore.dev:443
-            www.bestpractices.dev:443
-            release-assets.githubusercontent.com
-            objects.githubusercontent.com:443
-            raw.githubusercontent.com:443
-            static.rust-lang.org:443
-            static.crates.io:443
-            index.crates.io:443
             azure.archive.ubuntu.com:80
             changelogs.ubuntu.com:443
             esm.ubuntu.com:443
-            security.ubuntu.com:80
+            fulcio.sigstore.dev:443
+            get.anchore.io:443
+            github.com:443
+            gobinaries.com:443
+            index.crates.io:443
+            objects.githubusercontent.com:443
+            oss-fuzz-build-logs.storage.googleapis.com:443
             packages.microsoft.com:443
+            raw.githubusercontent.com:443
+            rekor.sigstore.dev:443
+            release-assets.githubusercontent.com:443
+            security.ubuntu.com:80
+            static.crates.io:443
+            static.rust-lang.org:443
+            tuf-repo-cdn.sigstore.dev:443
+            uploads.github.com:443
+            www.bestpractices.dev:443
+            _http._tcp.azure.archive.ubuntu.com:443
+            _https._tcp.esm.ubuntu.com:443
+            _https._tcp.motd.ubuntu.com:443
+            _https._tcp.packages.microsoft.com:443
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -66,7 +72,7 @@ jobs:
 
       # Build & Package
       - name: Build Reproducible Binary
-        uses: yonasBSD/toolkit@e3156a095eb4a759778ad8ef10dfd58dd00993e6 # v0.1.0
+        uses: yonasBSD/toolkit@e3156a095eb4a759778ad8ef10dfd58dd00993e6 # v1.0.0
         with:
           run: |
             export SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)
@@ -98,7 +104,7 @@ jobs:
 
       # Attestations
       - name: Attest SBOMs
-        uses: actions/attest-sbom@7d9b9d6f3a2efd49c548db5f7b061f147d16bed8 # main
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3.0.0
         with:
           sbom-path: 'sbom-*.spdx.json'
 
