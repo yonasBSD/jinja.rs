@@ -2,32 +2,40 @@
 #
 # SPDX-License-Identifier: MIT
 
-# nfpm example configuration file
+# NFPM Universal Configuration for Rust Projects
 #
-# check https://nfpm.goreleaser.com/configuration for detailed usage
+# This file remains identical across all repositories.
+# Metadata is injected via environment variables in GitHub Actions.
 #
-name: "jinja.rs"
+# See https://nfpm.goreleaser.com/configuration for detailed usage
+
+name: "${PROJECT_BIN}"           # Dynamic crate name from Cargo.toml
 arch: "amd64"
 platform: "linux"
-version: "1.0.0"
+version: "${VERSION}"            # Cleaned git tag (e.g., 1.2.3)
 section: "default"
 priority: "extra"
-maintainer: "John Doe <john@example.com>"
-description: |
-  CLI to the GitHub API.
-vendor: "FooBar Corp"
-homepage: "http://github.com/yonasBSD/jinja.rs"
-license: "MIT"
-changelog: "changelog.yaml"
+maintainer: "${MAINTAINER}"      # First author from Cargo.toml
+description: "${DESCRIPTION}"    # Package description from Cargo.toml
+vendor: "${VENDOR}"              # Organization/User name
+homepage: "${HOMEPAGE}"          # Repository URL
+license: "${LICENSE}"            # SPDX license from Cargo.toml
+
+# Binary mapping
 contents:
-  - src: ./target/release/jinja-rs
-    dst: /usr/bin/jinja.rs
+  - src: "./target/release/${PROJECT_BIN}"
+    dst: "/usr/bin/${PROJECT_BIN}"
+    file_info:
+      mode: 0755            # Ensure binary is executable
+
+# Package lifecycle scripts
+# Scripts are stored in packaging/scripts/ to avoid root directory clutter
 overrides:
   rpm:
     scripts:
-      preinstall: ./scripts/preinstall.sh
-      postremove: ./scripts/postremove.sh
+      preinstall: ./packaging/scripts/preinstall.sh
+      postremove: ./packaging/scripts/postremove.sh
   deb:
     scripts:
-      postinstall: ./scripts/postinstall.sh
-      preremove: ./scripts/preremove.sh
+      postinstall: ./packaging/scripts/postinstall.sh
+      preremove: ./packaging/scripts/preremove.sh
