@@ -1,0 +1,16 @@
+[package]
+name = "errors-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# Local dependency
+errors-lib = { path = "../errors-lib" }
+
+# Application layer utilities
+miette = { version = "7.6", features = ["fancy"] }
+
+# Tracing
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+tracing-appender = "0.2.4"
+color-eyre = "0.6.5"

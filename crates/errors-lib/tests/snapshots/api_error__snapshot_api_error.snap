@@ -1,0 +1,16 @@
+---
+source: crates/errors-lib/tests/api_error.rs
+expression: redacted
+---
+{
+  "code": "config::invalid_format",
+  "correlation_id": "REDACTED_ID",
+  "docs_url": "https://docs.rs/errors-lib/0.1.0",
+  "git_hash": "REDACTED_HASH",
+  "help": "Ensure the configuration file is valid JSON.",
+  "history": [
+    "crates/errors-lib/src/lib.rs:149",
+    "The application cannot proceed without a valid config."
+  ],
+  "title": "Failed to parse config at config.json"
+}

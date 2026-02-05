@@ -1,476 +1,128 @@
-# jinja.rs
+## 🏗️ Architecture of errors.rs
 
-> A powerful, configuration-driven template rendering engine combining MiniJinja templates with Rhai scripting and shell command execution.
-
-![Licenses](https://github.com/yonasBSD/jinja.rs/actions/workflows/licenses.yaml/badge.svg)
-![Linting](https://github.com/yonasBSD/jinja.rs/actions/workflows/lint.yaml/badge.svg)
-![Testing](https://github.com/yonasBSD/jinja.rs/actions/workflows/test-with-coverage.yaml/badge.svg)
-![Packaging](https://github.com/yonasBSD/jinja.rs/actions/workflows/release-packaging.yaml/badge.svg)
-![Cross-Build](https://github.com/yonasBSD/jinja.rs/actions/workflows/cross-build.yaml/badge.svg)
-
-![Security Audit](https://github.com/yonasBSD/jinja.rs/actions/workflows/security.yaml/badge.svg)
-![Scorecard Audit](https://github.com/yonasBSD/jinja.rs/actions/workflows/scorecard.yaml/badge.svg)
-<!--[![codecov](https://codecov.io/gh/yonasBSD/jinja.rs/branch/main/graph/badge.svg?token=SLIHSUWHT2)](https://codecov.io/gh/yonasBSD/jinja.rs)-->
-<!--[![ghcr.io](https://img.shields.io/badge/ghcr.io-download-blue)](https://github.com/yonasBSD/jinja.rs/pkgs/container/jinja.rs)-->
-<!--[![Docker Pulls](https://img.shields.io/docker/pulls/jinja.rs/example.svg)](https://hub.docker.com/r/jinja.rs/example)-->
-<!--[![Quay.io](https://img.shields.io/badge/Quay.io-download-blue)](https://quay.io/repository/jinja.rs/example)-->
-
-![GitHub last commit](https://img.shields.io/github/last-commit/yonasBSD/jinja.rs)
-[![Dependency Status](https://deps.rs/repo/github/yonasBSD/jinja.rs/status.svg)](https://deps.rs/repo/github/yonasBSD/jinja.rs)
-![Rust](https://img.shields.io/badge/Built%20With-Rust-orange?logo=rust)
-[![GitHub Release](https://img.shields.io/github/release/yonasBSD/jinja.rs.svg)](https://github.com/yonasBSD/jinja.rs/releases/latest)
-[![License](https://img.shields.io/github/license/yonasBSD/jinja.rs.svg)](https://github.com/yonasBSD/jinja.rs/blob/main/LICENSE.txt)
-<!--[![Matrix Chat](https://img.shields.io/matrix/vaultwarden:matrix.org.svg?logo=matrix)](https://matrix.to/#/#vaultwarden:matrix.org)-->
-
-## ✨ Features
-
-* 🎨 **MiniJinja Templates** - Full-featured Jinja2-compatible templating for Rust.
-* 🦀 **Rhai Scripting** - Embedded scripting engine for complex, dynamic variable generation.
-* 🐚 **Embedded Fish Shell** - Includes a portable **fish shell runtime** embedded in the binary.
-    * **Zero Dependencies:** No need to have fish, sh, or zsh installed on the host system.
-    * **Consistency:** Ensures shell commands (`cmd`/`cmds`) run identically across Linux, FreeBSD, and OpenBSD.
-    * **Auto-Provisioning:** Automatically extracts to `~/.cache/jinja-rs/` and manages permissions on first run.
-* ⚙️ **Declarative Configuration** - Define your entire data pipeline in a clean `j2.yaml` file.
-* 🎯 **Custom Filters** - Turn any Rhai function into a reusable MiniJinja filter.
-* 🔧 **Flexible Execution** - Per-variable shell overrides, custom environment variables, and specific working directories.
-* 🚀 **High Performance** - Parallel variable resolution and efficient binary extraction.
-
-## 🚀 Quick Start
-
-### Installation
-
-```sh
-cargo install jinja-rs
-```
-
-Or build from source:
-
-```sh
-git clone https://github.com/yonasBSD/jinja.rs
-cd jinja.rs
-cargo build --release
-```
-
-### Basic Usage
-
-1. Create a configuration file `j2.yaml`:
-
-```yaml
-default_shell: sh
-
-vars:
-  # Script-based variable
-  - name: timestamp
-    script: "1234567890"
-
-  # Shell command variable
-  - name: username
-    cmd: "whoami"
-
-  # Custom filter function
-  - function: upper
-    arguments:
-      - name: text
-    script: "text.to_upper()"
-```
-
-2. Create a template `template.j2`:
-
-```jinja
-Hello {{ username }}!
-Timestamp: {{ timestamp }}
-Shouting: {{ username | upper }}
-```
-
-3. Render the template:
-
-```sh
-jinja-rs --template template.j2
-```
-
-Output:
-```
-Hello alice!
-Timestamp: 1234567890
-Shouting: ALICE
-```
-
-## 📖 Documentation
-
-### Configuration File (`j2.yaml`)
-
-The configuration file drives all behavior. It supports:
-
-#### Global Settings
-
-```yaml
-default_shell: sh  # Default shell for command execution (optional)
-```
-
-#### Variable Types
-
-**1. Rhai Script Variables**
-
-Execute Rhai scripts to generate values:
-
-```yaml
-vars:
-  - name: calculation
-    script: "2 + 2 * 10"
-
-  - name: greeting
-    script: "\"Hello, \" + \"World!\""
-```
-
-**2. Single Command Variables**
-
-Execute a shell command and capture output:
-
-```yaml
-vars:
-  - name: hostname
-    cmd: "hostname"
-
-  - name: current_date
-    cmd: "date +%Y-%m-%d"
-    shell: sh  # Override default shell
-```
-
-**3. Multi-Command Variables**
-
-Execute multiple commands and join results:
-
-```yaml
-vars:
-  - name: system_info
-    cmds:
-      - "uname -s"
-      - "uname -r"
-      - "uname -m"
-```
-
-**4. Custom Filters**
-
-Define Rhai functions that become MiniJinja filters:
-
-```yaml
-vars:
-  - function: reverse
-    arguments:
-      - name: text
-    script: |
-      let chars = text.split("");
-      chars.reverse();
-      chars.join("")
-
-  - function: multiply
-    arguments:
-      - name: value
-      - name: factor
-    script: "parse_int(value) * parse_int(factor)"
-```
-
-Use in templates:
-```jinja
-{{ "hello" | reverse }}
-{{ "5" | multiply(3) }}
-```
-
-#### Advanced Configuration
-
-**Environment Variables**
-
-```yaml
-vars:
-  - name: custom_path
-    cmd: "echo $MY_VAR"
-    env:
-      MY_VAR: "/custom/path"
-      ANOTHER: "value"
-```
-
-**Working Directory**
-
-```yaml
-vars:
-  - name: files
-    cmd: "ls -la"
-    cwd: "/tmp"
-```
-
-**Shell Selection Precedence**
-
-1. Per-variable `shell` (highest priority)
-2. Global `default_shell`
-3. `fish` (hardcoded fallback)
-
-```yaml
-default_shell: sh
-
-vars:
-  - name: uses_sh
-    cmd: "echo $SHELL"
-
-  - name: uses_sh
-    cmd: "echo $SHELL"
-    shell: sh  # Overrides default
-```
-
-### Template Syntax
-
-jinja.rs uses MiniJinja, which is compatible with Jinja2:
-
-```jinja
-{# Comments #}
-
-{{ variable }}  {# Variable substitution #}
-
-{{ variable | filter }}  {# Apply filter #}
-
-{% if condition %}
-  ...
-{% endif %}
-
-{% for item in items %}
-  {{ item }}
-{% endfor %}
-```
-
-## 🎯 Use Cases
-
-### Configuration File Generation
-
-Generate Nginx configs, systemd units, or any configuration files:
-
-```yaml
-# j2.yaml
-vars:
-  - name: server_name
-    cmd: "hostname -f"
-
-  - name: worker_processes
-    script: "4"
-```
-
-```nginx
-# nginx.conf.j2
-server {
-    server_name {{ server_name }};
-    worker_processes {{ worker_processes }};
-}
-```
-
-### Dynamic Documentation
-
-Create documentation with live system information:
-
-```yaml
-vars:
-  - name: version
-    cmd: "git describe --tags"
-
-  - name: build_date
-    cmd: "date -u +%Y-%m-%d"
-
-  - name: contributors
-    cmds:
-      - "git log --format='%an' | sort -u | head -5"
-```
-
-### DevOps Automation
-
-Generate deployment manifests with environment-specific values:
-
-```yaml
-vars:
-  - name: environment
-    cmd: "echo $DEPLOY_ENV"
-
-  - name: replicas
-    script: |
-      if environment == "prod" { 5 } else { 2 }
-```
-
-## 🏗️ Architecture
-
-```mermaid
-graph TD
-    A[j2.yaml<br/>Configuration] --> B{Variable Type}
-    B -->|script| C[Rhai Engine]
-    B -->|cmd/cmds| D[Shell Executor]
-    B -->|function| E[Rhai Functions]
-
-    C --> F[Variables]
-    D --> F
-    E --> G[Custom Filters]
-
-    H[Template .j2] --> I[MiniJinja Engine]
-    F --> I
-    G --> I
-
-    I --> J[Rendered Output]
-
-    style A fill:#e1f5ff,stroke:#0288d1,stroke-width:2px
-    style H fill:#e1f5ff,stroke:#0288d1,stroke-width:2px
-    style I fill:#fff9c4,stroke:#f57f17,stroke-width:2px
-    style J fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
-    style C fill:#ffe0b2,stroke:#e64a19,stroke-width:2px
-    style D fill:#ffe0b2,stroke:#e64a19,stroke-width:2px
-    style E fill:#ffe0b2,stroke:#e64a19,stroke-width:2px
-```
-
-### Design Principles
-
-1. **Configuration over Code** - All logic defined in YAML, no code changes needed
-2. **Separation of Concerns** - Variables, filters, and templates are independent
-3. **Composability** - Mix Rhai scripts, shell commands, and template logic freely
-4. **Fail-Safe** - Errors are captured and reported, not silently ignored
-
-## 🔐 Supply‑Chain Security & Reproducible Releases
-
-The jinja.rs release pipeline is built with a modern, defense‑in‑depth approach to software supply‑chain security. Every published artifact is verifiable, traceable, and accompanied by rich metadata to ensure integrity and trust.
-
-### 🧱 Reproducible Builds
-
-All release binaries are built using deterministic settings:
-
-- `SOURCE_DATE_EPOCH` pinned to the latest commit
-- incremental compilation disabled
-- deterministic metadata embedded
-
-This ensures that independent rebuilds produce identical output, a foundational requirement for trustworthy software.
-
-### 📦 Per‑Artifact SBOMs
-
-Each package (`.deb`, `.rpm`, `.apk`, `.ipk`, `.zst`) includes its own Software Bill of Materials in SPDX format.
-SBOMs are generated using Syft and published alongside the release as:
-
-`sbom-<artifact>.spdx.json`
-
-This gives downstream users and security scanners full visibility into dependencies and build inputs.
-
-### 🔐 Sigstore Keyless Signatures
-
-All release artifacts are signed using Sigstore Cosign with GitHub’s OIDC identity.
-This provides:
-
-- zero private key management
-- signatures tied to the GitHub workflow identity
-- transparent, verifiable authenticity
-
-Each artifact has a corresponding signature file:
-
-`<artifact>.sig`
-
-### 🧾 Attestations (SBOMs, Signatures, Provenance)
-
-The release pipeline generates attestations for:
-
-- the built packages
-- the SBOMs
-- the signature files
-
-These attestations provide cryptographically verifiable metadata about how each artifact was produced.
-
-### 🛡️ SLSA Level 3 Provenance
-
-Every release includes SLSA Build Level 3 provenance, generated automatically by GitHub’s secure builders.
-This provenance describes:
-
-- the exact commit used
-- the build environment
-- the build steps
-- the identity of the workflow
-- the cryptographic integrity of the artifacts
-
-This is the highest level of SLSA currently achievable on GitHub Actions.
-
-### ⚡ BLAKE3 Checksums
-
-All artifacts include a fast, modern integrity checksum file:
-
-`checksums-blake3.txt`
-
-BLAKE3 is significantly faster than SHA‑256 while maintaining strong cryptographic properties.
-
-See [INSTALL.md](INSTALL.md) to see how to verify downloaded binaries.
-
-## 🧪 Testing
-
-Comprehensive test suite with 60+ tests covering:
-
-- Configuration deserialization
-- Command execution with various shells
-- Rhai script evaluation
-- MiniJinja template rendering
-- Integration scenarios
-- Edge cases and error handling
-
-Run tests:
-```sh
-cargo test
-```
-
-Run tests with output:
-```sh
-cargo test -- --nocapture
-```
-
-See [TESTING.md](TESTING.md) for detailed test documentation.
-
-## 🛣️ Roadmap
-
-- [ ] CLI argument for config file path (currently hardcoded to `j2.yaml`)
-- [ ] Template auto-discovery
-- [ ] Multi-template rendering in one invocation
-- [ ] JSON/TOML config format support
-- [ ] Watch mode for live reloading
-- [ ] Built-in filter library
-- [ ] Plugin system for custom functions
-- [ ] Performance optimizations for large-scale rendering
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
-
-### Development Setup
-
-```sh
-# Clone the repository
-git clone https://github.com/yonasBSD/jinja.rs
-cd jinja.rs
-
-# Run tests
-cargo test
-
-# Run with example
-cargo run -- --template examples/demo.j2
-
-# Build release
-cargo build --release
-```
-
-## 📝 License
-
-This project is licensed under either of:
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
-- MIT License ([LICENSE-MIT](LICENSE-MIT))
-
-at your option.
-
-## 🙏 Acknowledgments
-
-- [MiniJinja](https://github.com/mitsuhiko/minijinja) - Jinja2 template engine for Rust
-- [Rhai](https://github.com/rhaiscript/rhai) - Embedded scripting language
-- [clap](https://github.com/clap-rs/clap) - Command-line argument parsing
-
-## 📧 Contact
-
-- **Author**: yonasBSD
-- **Repository**: [github.com/yonasBSD/jinja.rs](https://github.com/yonasBSD/jinja.rs)
-- **Issues**: [github.com/yonasBSD/jinja.rs/issues](https://github.com/yonasBSD/jinja.rs/issues)
+This architecture leverages Rust's trait system to create a unified diagnostic engine. It transitions from **Structured Data** (SNAFU) to **Contextual History** (error-stack) and finally to **Visual/Machine Output** (Miette/Problemo).
 
 ---
 
-<p align="center">Made with ❤️ and 🦀</p>
+### 1. The Definition Layer (Identity)
+
+* **[SNAFU](https://github.com/shepmaster/snafu):** Your core error "factory." Use this to define domain-specific enums. It provides the metadata (labels, help text, error codes) that later layers will consume.
+* **[anyhow](https://github.com/dtolnay/anyhow) / [color-eyre](https://github.com/eyre-rs/eyre):** Reserved for top-level application boundaries. `color-eyre` is specifically integrated to provide rich panic hooks and "Section" based reporting during development.
+
+### 2. The Propagation Layer (Logic)
+
+* **[error-stack](https://github.com/hashintel/hash):** The primary wrapper. It provides the `Report<E>` type, which allows you to "stack" context. Unlike `anyhow`, it maintains type-safety for the original error defined in SNAFU.
+* **[rootcause](https://github.com/mcarvalho624/rootcause) / [handle-this](https://github.com/BrandonLeeDotDev/handle-this):** Used for control-flow logic. `rootcause` allows you to inspect the very bottom of an `error-stack` to make branching decisions based on the original `std::io::Error` or similar.
+
+### 3. The Presentation Layer (Output Sinks)
+
+* **[Miette](https://github.com/zkat/miette) & [Ariadne](https://github.com/zesterer/ariadne):** The "Visual Sink." Miette defines the `Diagnostic` trait which your errors implement. When a report is printed to a TTY, Ariadne is triggered to render the source code snippets and labels.
+* **[Problemo](https://github.com/tliron/problemo):** The "API Sink." Converts the internal `Report` into **RFC 7807** JSON for web services (Axum/Actix).
+* **[exn](https://github.com/fast/exn) / [fast-serialization](https://github.com/fast-serialization/fast-serialization):** Used to flatten the complex stack into a machine-readable JSON format for structured logging (tracing).
+
+---
+
+### 💻 Conceptual Implementation (Core Logic)
+
+```rust
+/**
+ * Unified Diagnostic Provider
+ * Integrating SNAFU for definition and error-stack for propagation.
+ */
+
+use miette::{Diagnostic, SourceSpan};
+use snafu::prelude::*;
+use error_stack::{Report, ResultExt};
+
+// 1. Define the Structured Error with Miette metadata
+#[derive(Debug, Snafu, Diagnostic)]
+#[snafu(visibility(pub))]
+#[diagnostic(
+    code(env::missing_var),
+    help("Please set the variable in your .env file or shell."),
+    url("[https://docs.rs/mylib/errors/env](https://docs.rs/mylib/errors/env)")
+)]
+pub enum ConfigError {
+    #[snafu(display("Environment variable '{var}' not found"))]
+    MissingVar {
+        var: String,
+        #[label("required variable")]
+        span: SourceSpan,
+    },
+}
+
+// 2. Function using error-stack to wrap SNAFU errors
+pub fn initialize_app() -> Result<(), Report<ConfigError>> {
+    let var_name = "API_KEY".to_string();
+
+    // Triggering an error and attaching printable context
+    Err(ConfigError::MissingVar {
+        var: var_name,
+        span: (0, 7).into(),
+    })
+    .into_report()
+    .attach_printable("Failed to initialize the security subsystem")
+}
+
+/* * NOTE: Presentation logic (Miette vs Problemo) 
+ * occurs at the application boundary (main.rs or controller.rs).
+ */
+```
+
+### 🛠️ The Extension Trait: Mapping Reports to Sinks
+
+This trait allows you to call `.to_problem()` or `.to_diagnostic()` directly on any `Result` or `Report` in your codebase.
+
+```rust
+/**
+ * Extension trait to bridge error-stack with Problemo and Miette.
+ */
+
+use error_stack::Report;
+use problemo::Problem;
+use miette::Diagnostic;
+
+pub trait ReportExt {
+    /// Converts the report into an RFC 7807 Problem Detail for APIs.
+    fn to_problem(&self) -> Problem;
+
+    /// Renders the report using Miette/Ariadne for the terminal.
+    fn render_diagnostic(&self);
+}
+
+impl<E> ReportExt for Report<E> 
+where 
+    E: Diagnostic + std::fmt::Display + 'static 
+{
+    fn to_problem(&self) -> Problem {
+        // Extracting the root cause and printable attachments
+        let title = self.current_context().to_string();
+        let detail = format!("{:?}", self); // Captured stack trace as detail
+
+        Problem::new("[https://api.myapp.com/errors/internal](https://api.myapp.com/errors/internal)")
+            .with_title(title)
+            .with_detail(detail)
+            // Problemo can take extra fields for machine-readable metadata
+            .with_value("code", E::code(&self.current_context()).map(|c| c.to_string()))
+    }
+
+    fn render_diagnostic(&self) {
+        // Miette can wrap the error-stack report for Ariadne rendering
+        // This is where the terminal 'pretty printing' magic happens
+        println!("{:?}", miette::Report::new(self.current_context()));
+    }
+}
+
+/* * Usage Example:
+ * let result = initialize_app().map_err(|e| e.to_problem());
+ */
+```
+
+---
+
+## Final Summary of the Flow
+
+* **Define** with **SNAFU** (Attributes for Miette).
+* **Wrap** with **error-stack** (Add `attach_printable` context).
+* **Inspect** with **rootcause** (If logic branching is needed).
+* **Finalize** with the **Extension Trait** (Output to **Ariadne** for CLI or **Problemo** for Web).
