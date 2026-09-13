@@ -23,7 +23,7 @@ tempfile = "3.24"
 # FreeBSD build dependencies
 # -------------------------------
 [target.'cfg(target_os = "freebsd")'.build-dependencies]
-zstd = "0.13"
+zstd = "0.14"
 tar = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_yml = "0.0.12"
